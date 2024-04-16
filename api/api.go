@@ -71,6 +71,7 @@ func InitRouter(movieHandler *handler.MovieHandler) {
 	userRoutes := router.Group("v1/torrent")
 	{
 		userRoutes.Put("/download/:movieId", middleware.CORSMiddleware, middleware.AuthMiddleware, movieHandler.DownloadTorrent)
+		userRoutes.Put("/cancel/:filename", middleware.CORSMiddleware, middleware.AuthMiddleware, movieHandler.CancelDownload)
 		userRoutes.Get("/status", middleware.CORSMiddleware, middleware.AuthMiddleware, movieHandler.TorrentStatus)
 	}
 

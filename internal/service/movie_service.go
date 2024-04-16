@@ -53,7 +53,7 @@ func NewMovieService(movieRepo repository.IMovieRepository) *MovieService {
 //------------------------------------------
 //------------------------------------------
 
-func (m *MovieService) DownloadFile(movieId string, torrentUrl string) (*model.DownloadingFile, error) {
+func (m *MovieService) DownloadFile(movieId string, torrentUrl string) (d *model.DownloadingFile, err error) {
 	checkResult, err := m.movieRepo.CheckTorrentLinkExist(movieId, torrentUrl)
 	if err != nil {
 		return nil, err
@@ -65,7 +65,7 @@ func (m *MovieService) DownloadFile(movieId string, torrentUrl string) (*model.D
 			return nil, errors.New("already downloading")
 		}
 	}
-	d := &model.DownloadingFile{
+	d = &model.DownloadingFile{
 		State:          "started",
 		Name:           "",
 		Size:           0,
@@ -82,10 +82,11 @@ func (m *MovieService) DownloadFile(movieId string, torrentUrl string) (*model.D
 	defer func() {
 		// remove file from slice
 		m.downloadingFilesMux.Lock()
-		if d.DownloadedSize == d.Size {
+		if err != nil || d.DownloadedSize == d.Size {
 			m.downloadingFiles = slices.DeleteFunc(m.downloadingFiles, func(d *model.DownloadingFile) bool {
 				return d.TorrentUrl == torrentUrl
 			})
+			_ = m.removeTorrentFile(d.Name)
 		}
 		m.downloadingFilesMux.Unlock()
 	}()
@@ -149,6 +150,7 @@ func (m *MovieService) CancelDownload(fileName string) error {
 	for i := range m.downloadingFiles {
 		if m.downloadingFiles[i].Name == fileName {
 			m.downloadingFiles[i].Torrent.Drop()
+			_ = m.removeTorrentFile(m.downloadingFiles[i].Name)
 			break
 		}
 	}
@@ -206,6 +208,15 @@ func (m *MovieService) RemoveTorrentMetaFile(metaFileName string) error {
 	err := os.Remove(m.downloadDir + metaFileName)
 	if err != nil {
 		errorMessage := fmt.Sprintf("Error on removing torrent meta file: %s", err)
+		errorHandler.SaveError(errorMessage, err)
+	}
+	return err
+}
+
+func (m *MovieService) removeTorrentFile(filename string) error {
+	err := os.Remove(m.downloadDir + filename)
+	if err != nil {
+		errorMessage := fmt.Sprintf("Error on removing torrent file: %s", err)
 		errorHandler.SaveError(errorMessage, err)
 	}
 	return err

@@ -1,0 +1,160 @@
+basePath: /
+definitions:
+  model.DownloadingFile:
+    properties:
+      downloadedSize:
+        type: integer
+      name:
+        type: string
+      size:
+        type: integer
+      state:
+        type: string
+      titleId:
+        type: string
+      titleName:
+        type: string
+      titleType:
+        type: string
+      torrentUrl:
+        type: string
+    type: object
+  model.TorrentStatusRes:
+    properties:
+      downloadingFiles:
+        items:
+          $ref: '#/definitions/model.DownloadingFile'
+        type: array
+    type: object
+  response.ResponseErrorModel:
+    properties:
+      code:
+        type: integer
+      errorMessage: {}
+    type: object
+  response.ResponseOKModel:
+    properties:
+      code:
+        type: integer
+      errorMessage:
+        type: string
+    type: object
+host: download.movieTracker.mom
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: Torrent service of the downloader_api project.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Go Torrent
+  version: "2.0"
+paths:
+  /:
+    get:
+      description: get the status of server.
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Show the status of server.
+      tags:
+      - System
+  /v1/torrent/cancel/:filename:
+    put:
+      description: cancel downloading torrent file.
+      parameters:
+      - description: filename
+        in: path
+        name: filename
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.ResponseOKModel'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ResponseErrorModel'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ResponseErrorModel'
+      security:
+      - BearerAuth: []
+      summary: Cancel Download
+      tags:
+      - Torrent-Download
+  /v1/torrent/download/:movieId:
+    put:
+      description: download from torrent into local storage
+      parameters:
+      - description: movieId
+        in: path
+        name: movieId
+        required: true
+        type: string
+      - description: link to torrent file or magnet link
+        in: query
+        name: link
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.DownloadingFile'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ResponseErrorModel'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ResponseErrorModel'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ResponseErrorModel'
+      security:
+      - BearerAuth: []
+      summary: Download Torrent
+      tags:
+      - Torrent-Download
+  /v1/torrent/status:
+    get:
+      description: get downloading files and storage usage etc.
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.TorrentStatusRes'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ResponseErrorModel'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ResponseErrorModel'
+      security:
+      - BearerAuth: []
+      summary: Torrent Status
+      tags:
+      - Torrent-Download
+schemes:
+- https
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
