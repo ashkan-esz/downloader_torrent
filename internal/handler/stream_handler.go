@@ -83,6 +83,10 @@ func (m *StreamHandler) StreamMedia(c *fiber.Ctx) error {
 	if len(rangeResult.Ranges) != 0 {
 		start := int64(rangeResult.Ranges[0].Start)
 		end := int64(rangeResult.Ranges[0].End)
+		tempEnd := start + (1024 * 1024) //1mb
+		if tempEnd < end {
+			end = tempEnd
+		}
 
 		// Setting required response headers
 		c.Set(fiber.HeaderContentRange, fmt.Sprintf("bytes %d-%d/%d", start, end, fileSize))
@@ -106,7 +110,8 @@ func (m *StreamHandler) StreamMedia(c *fiber.Ctx) error {
 		}
 	} else {
 		// If no Range header is present, serve the entire video
-		c.Set("Content-Length", strconv.FormatInt(fileSize, 10))
+		c.Set(fiber.HeaderContentLength, strconv.FormatInt(fileSize, 10))
+		c.Set(fiber.HeaderContentType, mimeType)
 
 		_, copyErr := io.Copy(c.Response().BodyWriter(), file)
 		if copyErr != nil {
