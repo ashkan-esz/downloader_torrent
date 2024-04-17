@@ -5,9 +5,11 @@ import (
 	"downloader_torrent/api/middleware"
 	_ "downloader_torrent/docs"
 	"downloader_torrent/internal/handler"
+	error2 "downloader_torrent/pkg/error"
 	"downloader_torrent/pkg/response"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gofiber/contrib/fibersentry"
@@ -19,11 +21,12 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/monitor"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/swagger"
+	"github.com/gofiber/template/html/v2"
 )
 
 var router *fiber.App
 
-func InitRouter(movieHandler *handler.MovieHandler) {
+func InitRouter(movieHandler *handler.MovieHandler, streamHandler *handler.StreamHandler) {
 	var defaultErrorHandler = func(c *fiber.Ctx, err error) error {
 		// Status code defaults to 500
 		code := fiber.StatusInternalServerError
@@ -37,15 +40,21 @@ func InitRouter(movieHandler *handler.MovieHandler) {
 		// Set Content-Type: text/plain; charset=utf-8
 		c.Set(fiber.HeaderContentType, fiber.MIMETextPlainCharsetUTF8)
 
+		if !strings.Contains(err.Error(), "/favicon.ico") && code >= 500 {
+			error2.SaveError(err.Error(), err)
+		}
+
 		// Return status code with error message
 		//return c.Status(code).SendString(err.Error())
 		return response.ResponseError(c, "Internal Error", code)
 	}
 
+	engine := html.New("./templates", ".tpl")
 	router = fiber.New(fiber.Config{
 		UnescapePath: true,
 		BodyLimit:    100 * 1024 * 1024,
 		ErrorHandler: defaultErrorHandler,
+		Views:        engine,
 	})
 
 	router.Use(helmet.New())
@@ -68,11 +77,20 @@ func InitRouter(movieHandler *handler.MovieHandler) {
 		MaxAge: 3600,
 	}))
 
-	userRoutes := router.Group("v1/torrent")
+	torrentRoutes := router.Group("v1/torrent")
 	{
-		userRoutes.Put("/download/:movieId", middleware.CORSMiddleware, middleware.AuthMiddleware, movieHandler.DownloadTorrent)
-		userRoutes.Put("/cancel/:filename", middleware.CORSMiddleware, middleware.AuthMiddleware, movieHandler.CancelDownload)
-		userRoutes.Get("/status", middleware.CORSMiddleware, middleware.AuthMiddleware, movieHandler.TorrentStatus)
+		torrentRoutes.Put("/download/:movieId", middleware.CORSMiddleware, middleware.AuthMiddleware, movieHandler.DownloadTorrent)
+		torrentRoutes.Put("/cancel/:filename", middleware.CORSMiddleware, middleware.AuthMiddleware, movieHandler.CancelDownload)
+		torrentRoutes.Get("/status", middleware.CORSMiddleware, middleware.AuthMiddleware, movieHandler.TorrentStatus)
+	}
+
+	streamRoutes := router.Group("v1/stream")
+	{
+		streamRoutes.Get("/:filename", func(c *fiber.Ctx) error {
+			filename := c.Params("filename", "")
+			return c.Render("index", fiber.Map{"Filename": filename})
+		})
+		streamRoutes.Get("/play/:filename", streamHandler.StreamMedia)
 	}
 
 	router.Get("/", HealthCheck)

@@ -65,6 +65,27 @@ paths:
       summary: Show the status of server.
       tags:
       - System
+  /v1/stream/play/:filename:
+    get:
+      description: stream downloaded file.
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.ResponseOKModel'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ResponseErrorModel'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ResponseErrorModel'
+      security:
+      - BearerAuth: []
+      summary: Stream Media
+      tags:
+      - Stream-Media
   /v1/torrent/cancel/:filename:
     put:
       description: cancel downloading torrent file.

@@ -74,6 +74,9 @@ func main() {
 	movieSvc := service.NewMovieService(movieRep)
 	movieHandler := handler.NewMovieHandler(movieSvc)
 
-	api.InitRouter(movieHandler)
+	streamSvc := service.NewStreamService(movieRep)
+	streamHandler := handler.NewStreamHandler(streamSvc)
+
+	api.InitRouter(movieHandler, streamHandler)
 	api.Start("0.0.0.0:" + configs.GetConfigs().Port)
 }
