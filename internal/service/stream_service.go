@@ -1,6 +1,7 @@
 package service
 
 import (
+	"downloader_torrent/configs"
 	"downloader_torrent/internal/repository"
 	"downloader_torrent/model"
 	"encoding/json"
@@ -47,7 +48,7 @@ func NewStreamService(movieRepo repository.IMovieRepository) *StreamService {
 //------------------------------------------
 
 func (m *StreamService) HandleFileConversion(filename string) (string, string, int) {
-	if strings.HasSuffix(filename, ".mkv") {
+	if strings.HasSuffix(filename, ".mkv") && !configs.GetConfigs().DontConvertMkv {
 		if len(m.convertingFiles) > 0 {
 			if m.convertingFiles[0].Name == filename {
 				errorMessage := fmt.Sprintf("Converting mkv to mp4: %v", m.convertingFiles[0].Progress)
@@ -113,6 +114,10 @@ func (m *StreamService) ConvertMkvToMp4(filename string) error {
 		GlobalArgs("-progress", "unix://"+TempSock(totalDuration, convFile)).
 		OverWriteOutput().
 		Run()
+
+	if err != nil {
+		_ = os.Remove(outputFile)
+	}
 
 	return err
 }

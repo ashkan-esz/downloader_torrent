@@ -23,6 +23,7 @@ type ConfigStruct struct {
 	SentryDns                 string
 	SentryRelease             string
 	PrintErrors               bool
+	DontConvertMkv            bool
 }
 
 var configs = ConfigStruct{}
@@ -52,4 +53,5 @@ func LoadEnvVariables() {
 	configs.SentryDns = os.Getenv("SENTRY_DNS")
 	configs.SentryRelease = os.Getenv("SENTRY_RELEASE")
 	configs.PrintErrors = os.Getenv("PRINT_ERRORS") == "true"
+	configs.DontConvertMkv = os.Getenv("DONT_CONVERT_MKV") == "true"
 }
