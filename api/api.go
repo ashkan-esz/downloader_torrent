@@ -59,7 +59,7 @@ func InitRouter(movieHandler *handler.MovieHandler, streamHandler *handler.Strea
 
 	router.Use(helmet.New())
 	router.Use(cors.New())
-	router.Use(timeoutMiddleware(time.Second * 2))
+	router.Use(timeoutMiddleware(time.Second * 10))
 	router.Use(recover.New())
 	// router.Use(logger.New())
 	router.Use(compress.New())

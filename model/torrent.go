@@ -2,13 +2,6 @@ package model
 
 import "github.com/anacrolix/torrent"
 
-type DownloadTorrentReq struct {
-}
-
-func (d *DownloadTorrentReq) Validate() string {
-	return ""
-}
-
 type TorrentStatusRes struct {
 	DownloadingFiles []*DownloadingFile `json:"downloadingFiles"`
 }
@@ -23,4 +16,11 @@ type DownloadingFile struct {
 	TitleId        string           `json:"titleId"`
 	TitleName      string           `json:"titleName"`
 	TitleType      string           `json:"titleType"`
+}
+
+type ConvertingFile struct {
+	Progress string  `json:"progress"`
+	Name     string  `json:"name"`
+	Size     int64   `json:"size"`
+	Duration float64 `json:"duration"`
 }

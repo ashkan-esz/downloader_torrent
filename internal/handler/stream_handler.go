@@ -45,6 +45,12 @@ func (m *StreamHandler) StreamMedia(c *fiber.Ctx) error {
 		return response.ResponseError(c, "Invalid filename", fiber.StatusBadRequest)
 	}
 
+	newFilename, errorMessage, errorCode := m.streamService.HandleFileConversion(filename)
+	if errorMessage != "" || errorCode != 0 {
+		return response.ResponseError(c, errorMessage, errorCode)
+	}
+	filename = newFilename
+
 	filePath := "./downloads/" + filename
 
 	// Open the video file
