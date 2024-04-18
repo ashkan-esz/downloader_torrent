@@ -20,6 +20,7 @@ import (
 type IMovieService interface {
 	DownloadFile(movieId string, torrentUrl string) (*model.DownloadingFile, error)
 	CancelDownload(fileName string) error
+	RemoveDownload(fileName string) error
 	GetDownloadingFiles() []*model.DownloadingFile
 	DownloadTorrentMetaFile(url string, location string) (string, error)
 	RemoveTorrentMetaFile(metaFileName string) error
@@ -157,6 +158,37 @@ func (m *MovieService) CancelDownload(fileName string) error {
 	m.downloadingFiles = slices.DeleteFunc(m.downloadingFiles, func(d *model.DownloadingFile) bool {
 		return d.Name == fileName
 	})
+	return nil
+}
+
+func (m *MovieService) RemoveDownload(fileName string) error {
+	if _, err := os.Stat("./downloads/" + fileName); errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	m.downloadingFilesMux.Lock()
+	defer m.downloadingFilesMux.Unlock()
+	for i := range m.downloadingFiles {
+		if m.downloadingFiles[i].Name == fileName {
+			m.downloadingFiles[i].Torrent.Drop()
+			break
+		}
+	}
+	m.downloadingFiles = slices.DeleteFunc(m.downloadingFiles, func(d *model.DownloadingFile) bool {
+		return d.Name == fileName
+	})
+
+	_ = m.removeTorrentFile(fileName)
+	if strings.HasSuffix(fileName, ".mkv") {
+		// remove converted file
+		mp4File := strings.Replace(fileName, ".mkv", ".mp4", 1)
+		_ = m.removeTorrentFile(mp4File)
+	}
+
+	localUrl := "/download/" + fileName
+	// don't know the type
+	_ = m.movieRepo.RemoveTorrentLocalLink("movie", localUrl)
+	_ = m.movieRepo.RemoveTorrentLocalLink("serial", localUrl)
+
 	return nil
 }
 

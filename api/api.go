@@ -5,9 +5,9 @@ import (
 	"downloader_torrent/api/middleware"
 	_ "downloader_torrent/docs"
 	"downloader_torrent/internal/handler"
-	error2 "downloader_torrent/pkg/error"
 	"downloader_torrent/pkg/response"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -41,7 +41,7 @@ func InitRouter(movieHandler *handler.MovieHandler, streamHandler *handler.Strea
 		c.Set(fiber.HeaderContentType, fiber.MIMETextPlainCharsetUTF8)
 
 		if !strings.Contains(err.Error(), "/favicon.ico") && code >= 500 {
-			error2.SaveError(err.Error(), err)
+			fmt.Println(err.Error())
 		}
 
 		// Return status code with error message
@@ -81,6 +81,7 @@ func InitRouter(movieHandler *handler.MovieHandler, streamHandler *handler.Strea
 	{
 		torrentRoutes.Put("/download/:movieId", middleware.CORSMiddleware, middleware.AuthMiddleware, movieHandler.DownloadTorrent)
 		torrentRoutes.Put("/cancel/:filename", middleware.CORSMiddleware, middleware.AuthMiddleware, movieHandler.CancelDownload)
+		torrentRoutes.Delete("/remove/:filename", middleware.CORSMiddleware, middleware.AuthMiddleware, movieHandler.RemoveDownload)
 		torrentRoutes.Get("/status", middleware.CORSMiddleware, middleware.AuthMiddleware, movieHandler.TorrentStatus)
 	}
 

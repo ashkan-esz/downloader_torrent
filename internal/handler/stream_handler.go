@@ -83,7 +83,7 @@ func (m *StreamHandler) StreamMedia(c *fiber.Ctx) error {
 	if len(rangeResult.Ranges) != 0 {
 		start := int64(rangeResult.Ranges[0].Start)
 		end := int64(rangeResult.Ranges[0].End)
-		tempEnd := start + (1024 * 1024) //1mb
+		tempEnd := start + (2 * 1024 * 1024) //1mb
 		if tempEnd < end {
 			end = tempEnd
 		}

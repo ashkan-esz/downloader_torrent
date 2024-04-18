@@ -5,6 +5,7 @@ import (
 	"downloader_torrent/model"
 	"downloader_torrent/pkg/response"
 	"errors"
+	"os"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -14,6 +15,7 @@ import (
 type IMovieHandler interface {
 	DownloadTorrent(c *fiber.Ctx) error
 	CancelDownload(c *fiber.Ctx) error
+	RemoveDownload(c *fiber.Ctx) error
 	TorrentStatus(c *fiber.Ctx) error
 }
 
@@ -83,6 +85,33 @@ func (m *MovieHandler) CancelDownload(c *fiber.Ctx) error {
 
 	err := m.movieService.CancelDownload(filename)
 	if err != nil {
+		return response.ResponseError(c, err.Error(), fiber.StatusInternalServerError)
+	}
+
+	return response.ResponseOK(c, "")
+}
+
+// RemoveDownload godoc
+//
+//	@Summary		Remove Download
+//	@Description	remove downloaded torrent file.
+//	@Tags			Torrent-Download
+//	@Param			filename	path		string	true	"filename"
+//	@Success		200			{object}	response.ResponseOKModel
+//	@Failure		400,401		{object}	response.ResponseErrorModel
+//	@Security		BearerAuth
+//	@Router			/v1/torrent/remove/:filename [delete]
+func (m *MovieHandler) RemoveDownload(c *fiber.Ctx) error {
+	filename := c.Params("filename", "")
+	if filename == "" || filename == ":filename" {
+		return response.ResponseError(c, "Invalid filename", fiber.StatusBadRequest)
+	}
+
+	err := m.movieService.RemoveDownload(filename)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return response.ResponseError(c, "File not found", fiber.StatusNotFound)
+		}
 		return response.ResponseError(c, err.Error(), fiber.StatusInternalServerError)
 	}
 

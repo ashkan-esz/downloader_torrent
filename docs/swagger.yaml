@@ -149,6 +149,33 @@ paths:
       summary: Download Torrent
       tags:
       - Torrent-Download
+  /v1/torrent/remove/:filename:
+    delete:
+      description: remove downloaded torrent file.
+      parameters:
+      - description: filename
+        in: path
+        name: filename
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.ResponseOKModel'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ResponseErrorModel'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ResponseErrorModel'
+      security:
+      - BearerAuth: []
+      summary: Remove Download
+      tags:
+      - Torrent-Download
   /v1/torrent/status:
     get:
       description: get downloading files and storage usage etc.
