@@ -6,7 +6,5 @@ package downloader_torrent
 //todo : torrentService :: merge with main server
 //todo : torrentService :: adminPanel show progress on download/upload
 //todo : torrentService :: adminPanel apis
-//todo : torrentService :: add api to remove file and localUrl from db
-//todo : torrentService :: rules for managing disk space usage
 //todo : torrentService :: sync downloaded file and links saved in db
 //todo : torrentService :: check/validate torrent link periodically

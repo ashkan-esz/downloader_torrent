@@ -22,6 +22,8 @@ type IMovieService interface {
 	CancelDownload(fileName string) error
 	RemoveDownload(fileName string) error
 	GetDownloadingFiles() []*model.DownloadingFile
+	GetLocalFiles() []*model.LocalFile
+	GetDiskSpaceUsage() (int64, error)
 	DownloadTorrentMetaFile(url string, location string) (string, error)
 	RemoveTorrentMetaFile(metaFileName string) error
 }
@@ -55,6 +57,14 @@ func NewMovieService(movieRepo repository.IMovieRepository) *MovieService {
 //------------------------------------------
 
 func (m *MovieService) DownloadFile(movieId string, torrentUrl string) (d *model.DownloadingFile, err error) {
+	diskUsage, err := m.GetDiskSpaceUsage()
+	if err != nil {
+		return nil, err
+	}
+	if diskUsage >= int64(configs.GetConfigs().MaxDownloadSpaceGb*1024*1024*1024) {
+		return nil, errors.New("maximum disk usage exceeded")
+	}
+
 	checkResult, err := m.movieRepo.CheckTorrentLinkExist(movieId, torrentUrl)
 	if err != nil {
 		return nil, err
@@ -181,7 +191,9 @@ func (m *MovieService) RemoveDownload(fileName string) error {
 	if strings.HasSuffix(fileName, ".mkv") {
 		// remove converted file
 		mp4File := strings.Replace(fileName, ".mkv", ".mp4", 1)
-		_ = m.removeTorrentFile(mp4File)
+		if _, err := os.Stat("./downloads/" + fileName); err == nil {
+			_ = m.removeTorrentFile(mp4File)
+		}
 	}
 
 	localUrl := "/download/" + fileName
@@ -201,6 +213,61 @@ func (m *MovieService) GetDownloadingFiles() []*model.DownloadingFile {
 		}
 	}
 	return m.downloadingFiles
+}
+
+func (m *MovieService) GetLocalFiles() []*model.LocalFile {
+	m.downloadingFilesMux.Lock()
+	defer m.downloadingFilesMux.Unlock()
+	dir, err := os.ReadDir(m.downloadDir)
+	if err != nil {
+		return make([]*model.LocalFile, 0)
+	}
+	localFiles := []*model.LocalFile{}
+	for i := range dir {
+		if strings.Contains(dir[i].Name(), ".torrent.db") || dir[i].IsDir() {
+			continue
+		}
+		for i2 := range m.downloadingFiles {
+			if m.downloadingFiles[i2].Name == dir[i].Name() {
+				// still downloading
+				continue
+			}
+		}
+
+		info, err := dir[i].Info()
+		if err != nil {
+			continue
+		}
+		f := &model.LocalFile{
+			Name:       dir[i].Name(),
+			Size:       info.Size(),
+			StreamLink: "/v1/stream/" + dir[i].Name(),
+		}
+		localFiles = append(localFiles, f)
+	}
+	return localFiles
+}
+
+//-----------------------------------------
+//-----------------------------------------
+
+func (m *MovieService) GetDiskSpaceUsage() (int64, error) {
+	files, err := os.ReadDir(m.downloadDir)
+	if err != nil {
+		return 0, err
+	}
+
+	var totalSize int64
+	for _, file := range files {
+		if !file.IsDir() {
+			info, err := file.Info()
+			if err != nil {
+				return 0, err
+			}
+			totalSize += info.Size()
+		}
+	}
+	return totalSize, nil
 }
 
 //-----------------------------------------
@@ -253,3 +320,6 @@ func (m *MovieService) removeTorrentFile(filename string) error {
 	}
 	return err
 }
+
+//-----------------------------------------
+//-----------------------------------------

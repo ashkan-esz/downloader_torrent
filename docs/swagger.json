@@ -73,6 +73,40 @@
                 }
             }
         },
+        "/v1/stream/status": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "get streaming status and converting files.",
+                "tags": [
+                    "Stream-Media"
+                ],
+                "summary": "Stream Status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.StreamStatusRes"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ResponseErrorModel"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ResponseErrorModel"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/torrent/cancel/:filename": {
             "put": {
                 "security": [
@@ -251,6 +285,23 @@
         }
     },
     "definitions": {
+        "model.ConvertingFile": {
+            "type": "object",
+            "properties": {
+                "duration": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "progress": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                }
+            }
+        },
         "model.DownloadingFile": {
             "type": "object",
             "properties": {
@@ -280,6 +331,31 @@
                 }
             }
         },
+        "model.LocalFile": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                },
+                "streamLink": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.StreamStatusRes": {
+            "type": "object",
+            "properties": {
+                "convertingFiles": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.ConvertingFile"
+                    }
+                }
+            }
+        },
         "model.TorrentStatusRes": {
             "type": "object",
             "properties": {
@@ -287,6 +363,12 @@
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/model.DownloadingFile"
+                    }
+                },
+                "localFiles": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.LocalFile"
                     }
                 }
             }

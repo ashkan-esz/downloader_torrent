@@ -2,6 +2,7 @@ package handler
 
 import (
 	"downloader_torrent/internal/service"
+	"downloader_torrent/model"
 	"downloader_torrent/pkg/response"
 	"fmt"
 	"io"
@@ -15,6 +16,7 @@ import (
 
 type IStreamHandler interface {
 	StreamMedia(c *fiber.Ctx) error
+	StreamStatus(c *fiber.Ctx) error
 }
 
 type StreamHandler struct {
@@ -121,4 +123,23 @@ func (m *StreamHandler) StreamMedia(c *fiber.Ctx) error {
 	}
 
 	return nil
+}
+
+// StreamStatus godoc
+//
+//	@Summary		Stream Status
+//	@Description	get streaming status and converting files.
+//	@Tags			Stream-Media
+//	@Success		200		{object}	model.StreamStatusRes
+//	@Failure		400,401	{object}	response.ResponseErrorModel
+//	@Security		BearerAuth
+//	@Router			/v1/stream/status [get]
+func (m *StreamHandler) StreamStatus(c *fiber.Ctx) error {
+	convertingFiles := m.streamService.GetConvertingFiles()
+
+	res := model.StreamStatusRes{
+		ConvertingFiles: convertingFiles,
+	}
+
+	return response.ResponseOKWithData(c, res)
 }

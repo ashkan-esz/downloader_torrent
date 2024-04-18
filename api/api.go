@@ -87,11 +87,12 @@ func InitRouter(movieHandler *handler.MovieHandler, streamHandler *handler.Strea
 
 	streamRoutes := router.Group("v1/stream")
 	{
+		streamRoutes.Get("/status", middleware.CORSMiddleware, middleware.AuthMiddleware, streamHandler.StreamStatus)
 		streamRoutes.Get("/:filename", func(c *fiber.Ctx) error {
 			filename := c.Params("filename", "")
 			return c.Render("index", fiber.Map{"Filename": filename})
 		})
-		streamRoutes.Get("/play/:filename", streamHandler.StreamMedia)
+		streamRoutes.Get("/play/:filename", middleware.CORSMiddleware, streamHandler.StreamMedia)
 	}
 
 	router.Get("/", HealthCheck)

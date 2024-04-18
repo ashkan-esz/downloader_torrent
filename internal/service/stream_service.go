@@ -24,6 +24,7 @@ import (
 )
 
 type IStreamService interface {
+	GetConvertingFiles() []*model.ConvertingFile
 	HandleFileConversion(filename string) (string, string, int)
 	ConvertMkvToMp4(filename string) error
 }
@@ -46,6 +47,10 @@ func NewStreamService(movieRepo repository.IMovieRepository) *StreamService {
 
 //------------------------------------------
 //------------------------------------------
+
+func (m *StreamService) GetConvertingFiles() []*model.ConvertingFile {
+	return m.convertingFiles
+}
 
 func (m *StreamService) HandleFileConversion(filename string) (string, string, int) {
 	if strings.HasSuffix(filename, ".mkv") && !configs.GetConfigs().DontConvertMkv {

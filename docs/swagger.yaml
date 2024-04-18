@@ -1,5 +1,16 @@
 basePath: /
 definitions:
+  model.ConvertingFile:
+    properties:
+      duration:
+        type: number
+      name:
+        type: string
+      progress:
+        type: string
+      size:
+        type: integer
+    type: object
   model.DownloadingFile:
     properties:
       downloadedSize:
@@ -19,11 +30,31 @@ definitions:
       torrentUrl:
         type: string
     type: object
+  model.LocalFile:
+    properties:
+      name:
+        type: string
+      size:
+        type: integer
+      streamLink:
+        type: string
+    type: object
+  model.StreamStatusRes:
+    properties:
+      convertingFiles:
+        items:
+          $ref: '#/definitions/model.ConvertingFile'
+        type: array
+    type: object
   model.TorrentStatusRes:
     properties:
       downloadingFiles:
         items:
           $ref: '#/definitions/model.DownloadingFile'
+        type: array
+      localFiles:
+        items:
+          $ref: '#/definitions/model.LocalFile'
         type: array
     type: object
   response.ResponseErrorModel:
@@ -84,6 +115,27 @@ paths:
       security:
       - BearerAuth: []
       summary: Stream Media
+      tags:
+      - Stream-Media
+  /v1/stream/status:
+    get:
+      description: get streaming status and converting files.
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.StreamStatusRes'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ResponseErrorModel'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ResponseErrorModel'
+      security:
+      - BearerAuth: []
+      summary: Stream Status
       tags:
       - Stream-Media
   /v1/torrent/cancel/:filename:

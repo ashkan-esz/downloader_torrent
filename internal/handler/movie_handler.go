@@ -129,9 +129,11 @@ func (m *MovieHandler) RemoveDownload(c *fiber.Ctx) error {
 //	@Router			/v1/torrent/status [get]
 func (m *MovieHandler) TorrentStatus(c *fiber.Ctx) error {
 	downloadingFiles := m.movieService.GetDownloadingFiles()
+	localFiles := m.movieService.GetLocalFiles()
 
 	res := model.TorrentStatusRes{
 		DownloadingFiles: downloadingFiles,
+		LocalFiles:       localFiles,
 	}
 
 	return response.ResponseOKWithData(c, res)

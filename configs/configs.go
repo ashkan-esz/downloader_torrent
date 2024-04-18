@@ -24,6 +24,7 @@ type ConfigStruct struct {
 	SentryRelease             string
 	PrintErrors               bool
 	DontConvertMkv            bool
+	MaxDownloadSpaceGb        int
 }
 
 var configs = ConfigStruct{}
@@ -54,4 +55,5 @@ func LoadEnvVariables() {
 	configs.SentryRelease = os.Getenv("SENTRY_RELEASE")
 	configs.PrintErrors = os.Getenv("PRINT_ERRORS") == "true"
 	configs.DontConvertMkv = os.Getenv("DONT_CONVERT_MKV") == "true"
+	configs.MaxDownloadSpaceGb, _ = strconv.Atoi(os.Getenv("MAX_DOWNLOAD_SPACE_GB"))
 }

@@ -29,6 +29,7 @@ To run this project, you will need to add the following environment variables to
 | **`MAIN_SERVER_ADDRESS`**       | the url of the downloader_api (main server)                                              | `true`   |               |
 | **`PRINT_ERRORS`**              |                                                                                          | `false`  | false         |
 | **`DONT_CONVERT_MKV`**          | dont convert mkv to mp4 on stream request                                                | `false`  | false         |
+| **`MAX_DOWNLOAD_SPACE_GB`**     | maximum amount of space can be stored locally                                            | `true`   |               |
 
 >**NOTE: check [configs schema](https://github.com/ashkan-esz/downloader_api/blob/master/readme/CONFIGS.README.md) for other configs that read from db.**
 

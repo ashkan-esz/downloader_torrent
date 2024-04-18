@@ -4,6 +4,7 @@ import "github.com/anacrolix/torrent"
 
 type TorrentStatusRes struct {
 	DownloadingFiles []*DownloadingFile `json:"downloadingFiles"`
+	LocalFiles       []*LocalFile       `json:"localFiles"`
 }
 
 type DownloadingFile struct {
@@ -16,6 +17,16 @@ type DownloadingFile struct {
 	TitleId        string           `json:"titleId"`
 	TitleName      string           `json:"titleName"`
 	TitleType      string           `json:"titleType"`
+}
+
+type LocalFile struct {
+	Name       string `json:"name"`
+	Size       int64  `json:"size"`
+	StreamLink string `json:"streamLink"`
+}
+
+type StreamStatusRes struct {
+	ConvertingFiles []*ConvertingFile `json:"convertingFiles"`
 }
 
 type ConvertingFile struct {
