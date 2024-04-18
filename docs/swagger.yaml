@@ -32,6 +32,8 @@ definitions:
     type: object
   model.LocalFile:
     properties:
+      downloadLink:
+        type: string
       name:
         type: string
       size:

@@ -20,9 +20,10 @@ type DownloadingFile struct {
 }
 
 type LocalFile struct {
-	Name       string `json:"name"`
-	Size       int64  `json:"size"`
-	StreamLink string `json:"streamLink"`
+	Name         string `json:"name"`
+	Size         int64  `json:"size"`
+	DownloadLink string `json:"downloadLink"`
+	StreamLink   string `json:"streamLink"`
 }
 
 type StreamStatusRes struct {

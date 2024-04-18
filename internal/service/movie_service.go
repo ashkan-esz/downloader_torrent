@@ -149,8 +149,8 @@ func (m *MovieService) DownloadFile(movieId string, torrentUrl string) (d *model
 		}
 	}
 
-	// sample: download.movieTracker.mom/download/ttt.mkv
-	localUrl := "/download/" + d.Name
+	// sample: download.movieTracker.mom/downloads/ttt.mkv
+	localUrl := "/downloads/" + d.Name
 	err = m.movieRepo.SaveTorrentLocalLink(movieId, checkResult.Type, torrentUrl, localUrl)
 	return d, err
 }
@@ -196,7 +196,7 @@ func (m *MovieService) RemoveDownload(fileName string) error {
 		}
 	}
 
-	localUrl := "/download/" + fileName
+	localUrl := "/downloads/" + fileName
 	// don't know the type
 	_ = m.movieRepo.RemoveTorrentLocalLink("movie", localUrl)
 	_ = m.movieRepo.RemoveTorrentLocalLink("serial", localUrl)
@@ -239,9 +239,10 @@ func (m *MovieService) GetLocalFiles() []*model.LocalFile {
 			continue
 		}
 		f := &model.LocalFile{
-			Name:       dir[i].Name(),
-			Size:       info.Size(),
-			StreamLink: "/v1/stream/" + dir[i].Name(),
+			Name:         dir[i].Name(),
+			Size:         info.Size(),
+			DownloadLink: "/downloads/" + dir[i].Name(),
+			StreamLink:   "/v1/stream/" + dir[i].Name(),
 		}
 		localFiles = append(localFiles, f)
 	}

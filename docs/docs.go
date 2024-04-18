@@ -337,6 +337,9 @@ const docTemplate = `{
         "model.LocalFile": {
             "type": "object",
             "properties": {
+                "downloadLink": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
