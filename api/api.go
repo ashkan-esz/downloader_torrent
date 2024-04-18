@@ -3,12 +3,14 @@ package api
 import (
 	"context"
 	"downloader_torrent/api/middleware"
+	"downloader_torrent/configs"
 	_ "downloader_torrent/docs"
 	"downloader_torrent/internal/handler"
 	"downloader_torrent/pkg/response"
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -58,7 +60,13 @@ func InitRouter(movieHandler *handler.MovieHandler, streamHandler *handler.Strea
 	})
 
 	router.Use(helmet.New())
-	router.Use(cors.New())
+	router.Use(cors.New(cors.Config{
+		AllowOriginsFunc: func(origin string) bool {
+			return middleware.LocalhostRegex.MatchString(origin) ||
+				slices.Index(configs.GetConfigs().CorsAllowedOrigins, origin) != -1
+		},
+		AllowCredentials: true,
+	}))
 	router.Use(timeoutMiddleware(time.Second * 10))
 	router.Use(recover.New())
 	// router.Use(logger.New())
@@ -79,20 +87,20 @@ func InitRouter(movieHandler *handler.MovieHandler, streamHandler *handler.Strea
 
 	torrentRoutes := router.Group("v1/torrent")
 	{
-		torrentRoutes.Put("/download/:movieId", middleware.CORSMiddleware, middleware.AuthMiddleware, movieHandler.DownloadTorrent)
-		torrentRoutes.Put("/cancel/:filename", middleware.CORSMiddleware, middleware.AuthMiddleware, movieHandler.CancelDownload)
-		torrentRoutes.Delete("/remove/:filename", middleware.CORSMiddleware, middleware.AuthMiddleware, movieHandler.RemoveDownload)
-		torrentRoutes.Get("/status", middleware.CORSMiddleware, middleware.AuthMiddleware, movieHandler.TorrentStatus)
+		torrentRoutes.Put("/download/:movieId", middleware.AuthMiddleware, movieHandler.DownloadTorrent)
+		torrentRoutes.Put("/cancel/:filename", middleware.AuthMiddleware, movieHandler.CancelDownload)
+		torrentRoutes.Delete("/remove/:filename", middleware.AuthMiddleware, movieHandler.RemoveDownload)
+		torrentRoutes.Get("/status", middleware.AuthMiddleware, movieHandler.TorrentStatus)
 	}
 
 	streamRoutes := router.Group("v1/stream")
 	{
-		streamRoutes.Get("/status", middleware.CORSMiddleware, middleware.AuthMiddleware, streamHandler.StreamStatus)
+		streamRoutes.Get("/status", middleware.AuthMiddleware, streamHandler.StreamStatus)
 		streamRoutes.Get("/:filename", func(c *fiber.Ctx) error {
 			filename := c.Params("filename", "")
 			return c.Render("index", fiber.Map{"Filename": filename})
 		})
-		streamRoutes.Get("/play/:filename", middleware.CORSMiddleware, streamHandler.StreamMedia)
+		streamRoutes.Get("/play/:filename", streamHandler.StreamMedia)
 	}
 
 	router.Get("/", HealthCheck)

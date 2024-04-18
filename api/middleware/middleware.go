@@ -4,6 +4,7 @@ import (
 	"downloader_torrent/db/redis"
 	"downloader_torrent/pkg/response"
 	"downloader_torrent/util"
+	"regexp"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -62,17 +63,6 @@ func AuthMiddleware(c *fiber.Ctx) error {
 	return c.Next()
 }
 
-func CORSMiddleware(c *fiber.Ctx) error {
-	c.Set("Access-Control-Allow-Origin", "*")
-	c.Set("Access-Control-Allow-Credentials", "true")
-	c.Set("Access-Control-Allow-Headers", "Content-Type,Content-Length")
-	c.Set("Access-Control-Allow-Method", "POST, GET, DELETE, PUT")
-
-	if c.Method() == "OPTIONS" {
-		//c.AbortWithStatus(204)
-		return c.SendStatus(204)
-		//return
-	}
-
-	return c.Next()
-}
+var (
+	LocalhostRegex = regexp.MustCompile(`(?i)^(https?://)?localhost(:\d{4})?$`)
+)
