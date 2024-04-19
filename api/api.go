@@ -98,7 +98,13 @@ func InitRouter(movieHandler *handler.MovieHandler, streamHandler *handler.Strea
 		streamRoutes.Get("/status", middleware.AuthMiddleware, streamHandler.StreamStatus)
 		streamRoutes.Get("/:filename", func(c *fiber.Ctx) error {
 			filename := c.Params("filename", "")
-			return c.Render("index", fiber.Map{"Filename": filename})
+			noConversion := c.QueryBool("noConversion", false)
+			crf := c.QueryInt("crf", 30)
+			return c.Render("index", fiber.Map{
+				"Filename":     filename,
+				"NoConversion": noConversion,
+				"Crf":          crf,
+			})
 		})
 		streamRoutes.Get("/play/:filename", streamHandler.StreamMedia)
 	}

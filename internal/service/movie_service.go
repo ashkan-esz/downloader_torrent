@@ -223,14 +223,15 @@ func (m *MovieService) GetLocalFiles() []*model.LocalFile {
 		return make([]*model.LocalFile, 0)
 	}
 	localFiles := []*model.LocalFile{}
+A:
 	for i := range dir {
-		if strings.Contains(dir[i].Name(), ".torrent.db") || dir[i].IsDir() {
+		if strings.Contains(dir[i].Name(), ".torrent.") || dir[i].IsDir() {
 			continue
 		}
 		for i2 := range m.downloadingFiles {
 			if m.downloadingFiles[i2].Name == dir[i].Name() {
 				// still downloading
-				continue
+				continue A
 			}
 		}
 

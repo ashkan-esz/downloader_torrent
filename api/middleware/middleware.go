@@ -55,7 +55,9 @@ func AuthMiddleware(c *fiber.Ctx) error {
 		return response.ResponseError(c, "Unauthorized, Invalid accessToken metaData", fiber.StatusUnauthorized)
 	}
 
-	//todo : check role is admin
+	if strings.ToLower(claims2.Role) != "admin" {
+		return response.ResponseError(c, "Forbidden, Admin users only", fiber.StatusForbidden)
+	}
 
 	c.Locals("refreshToken", refreshToken)
 	c.Locals("accessToken", accessToken)

@@ -55,6 +55,7 @@ Give a ⭐️ if you like this project!
 ## Related
 
 - [downloader_api](https://github.com/ashkan-esz/downloader_api)
+- [downloader_goChat](https://github.com/ashkan-esz/downloader_gochat)
 - [downloader_adminPanel](https://github.com/ashkan-esz/downloader_adminpanel)
 - [downloader_app](https://github.com/ashkan-esz/downloader_app)
 

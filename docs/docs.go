@@ -54,6 +54,22 @@ const docTemplate = `{
                     "Stream-Media"
                 ],
                 "summary": "Stream Media",
+                "parameters": [
+                    {
+                        "type": "boolean",
+                        "description": "doesn't convert mkv to mp4",
+                        "name": "noConversion",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "crf value for mkv to mp4 conversion",
+                        "name": "crf",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",

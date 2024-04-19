@@ -9,9 +9,9 @@
 <body>
     <h1>Video Streaming</h1>
 
-    <video id="video" width="600" height="420" controls>
+    <video id="video" width="900" height="600" controls>
         <!-- No source initially -->
-        <source src="http://localhost:3003/v1/stream/play/{{.Filename}}">
+        <source src="http://localhost:3003/v1/stream/play/{{.Filename}}?noConversion={{.NoConversion}}&crf={{.Crf}}">
         Your browser does not support the video tag.
     </video>
 

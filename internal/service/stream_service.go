@@ -25,8 +25,8 @@ import (
 
 type IStreamService interface {
 	GetConvertingFiles() []*model.ConvertingFile
-	HandleFileConversion(filename string) (string, string, int)
-	ConvertMkvToMp4(filename string) error
+	HandleFileConversion(filename string, noConversion bool, crf int) (string, string, int)
+	ConvertMkvToMp4(filename string, crf int) error
 }
 
 type StreamService struct {
@@ -52,8 +52,8 @@ func (m *StreamService) GetConvertingFiles() []*model.ConvertingFile {
 	return m.convertingFiles
 }
 
-func (m *StreamService) HandleFileConversion(filename string) (string, string, int) {
-	if strings.HasSuffix(filename, ".mkv") && !configs.GetConfigs().DontConvertMkv {
+func (m *StreamService) HandleFileConversion(filename string, noConversion bool, crf int) (string, string, int) {
+	if strings.HasSuffix(filename, ".mkv") && !noConversion && !configs.GetConfigs().DontConvertMkv {
 		if len(m.convertingFiles) > 0 {
 			if m.convertingFiles[0].Name == filename {
 				errorMessage := fmt.Sprintf("Converting mkv to mp4: %v", m.convertingFiles[0].Progress)
@@ -66,7 +66,7 @@ func (m *StreamService) HandleFileConversion(filename string) (string, string, i
 		m.convertingFilesMux.Lock()
 		convertedName := strings.Replace(filename, ".mkv", ".mp4", 1)
 		if _, err := os.Stat("./downloads/" + convertedName); errors.Is(err, os.ErrNotExist) {
-			err := m.ConvertMkvToMp4(filename)
+			err := m.ConvertMkvToMp4(filename, crf)
 			if err != nil {
 				m.convertingFilesMux.Unlock()
 				errorMessage := fmt.Sprintf("Error on converting mkv to mp4: %v", err)
@@ -79,7 +79,7 @@ func (m *StreamService) HandleFileConversion(filename string) (string, string, i
 	return filename, "", 0
 }
 
-func (m *StreamService) ConvertMkvToMp4(filename string) error {
+func (m *StreamService) ConvertMkvToMp4(filename string, crf int) error {
 	defer func() {
 		m.convertingFiles = slices.DeleteFunc(m.convertingFiles, func(cf *model.ConvertingFile) bool {
 			return cf.Name == filename
@@ -113,7 +113,7 @@ func (m *StreamService) ConvertMkvToMp4(filename string) error {
 			"c:a":      "copy",
 			"preset":   "ultrafast",
 			"movflags": "+faststart",
-			"crf":      "30",
+			"crf":      crf,
 			"tune":     "animation",
 		}).
 		GlobalArgs("-progress", "unix://"+TempSock(totalDuration, convFile)).

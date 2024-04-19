@@ -101,6 +101,17 @@ paths:
   /v1/stream/play/:filename:
     get:
       description: stream downloaded file.
+      parameters:
+      - description: doesn't convert mkv to mp4
+        in: query
+        name: noConversion
+        required: true
+        type: boolean
+      - description: crf value for mkv to mp4 conversion
+        in: query
+        name: crf
+        required: true
+        type: integer
       responses:
         "200":
           description: OK

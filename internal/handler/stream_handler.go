@@ -37,8 +37,10 @@ func NewStreamHandler(streamService service.IStreamService) *StreamHandler {
 //	@Summary		Stream Media
 //	@Description	stream downloaded file.
 //	@Tags			Stream-Media
-//	@Success		200		{object}	response.ResponseOKModel
-//	@Failure		400,401	{object}	response.ResponseErrorModel
+//	@Param			noConversion	query		bool	true	"doesn't convert mkv to mp4"
+//	@Param			crf				query		int		true	"crf value for mkv to mp4 conversion"
+//	@Success		200				{object}	response.ResponseOKModel
+//	@Failure		400,401			{object}	response.ResponseErrorModel
 //	@Security		BearerAuth
 //	@Router			/v1/stream/play/:filename [get]
 func (m *StreamHandler) StreamMedia(c *fiber.Ctx) error {
@@ -47,7 +49,10 @@ func (m *StreamHandler) StreamMedia(c *fiber.Ctx) error {
 		return response.ResponseError(c, "Invalid filename", fiber.StatusBadRequest)
 	}
 
-	newFilename, errorMessage, errorCode := m.streamService.HandleFileConversion(filename)
+	noConversion := c.QueryBool("noConversion", false)
+	crf := c.QueryInt("crf", 30)
+
+	newFilename, errorMessage, errorCode := m.streamService.HandleFileConversion(filename, noConversion, crf)
 	if errorMessage != "" || errorCode != 0 {
 		return response.ResponseError(c, errorMessage, errorCode)
 	}
