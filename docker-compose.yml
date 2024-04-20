@@ -1,0 +1,29 @@
+version: '3.4'
+
+services:
+  torrent:
+    image: downloader-torrent
+    network_mode: host
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+      network: host
+    env_file: ./.env
+    environment:
+      PORT: 3003
+      MAIN_SERVER_ADDRESS: api.movieTracker.mom
+      CORS_ALLOWED_ORIGINS: https://admin.movietracker.mom --- http://admin.movietracker.mom
+      LOG_PANIC_TRACE: 'true'
+      DONT_CONVERT_MKV: 'true'
+    volumes:
+      - ./downloads:/app/downloads
+    #    ports:
+    #      - "3003:3003"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 500M
+        reservations:
+          memory: 50M
+    restart: always
