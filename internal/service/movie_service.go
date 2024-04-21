@@ -212,6 +212,9 @@ func (m *MovieService) GetDownloadingFiles() []*model.DownloadingFile {
 			m.downloadingFiles[i].DownloadedSize = m.downloadingFiles[i].Torrent.BytesCompleted()
 		}
 	}
+	m.downloadingFiles = slices.DeleteFunc(m.downloadingFiles, func(df *model.DownloadingFile) bool {
+		return df.Size == df.DownloadedSize
+	})
 	return m.downloadingFiles
 }
 

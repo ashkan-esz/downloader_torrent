@@ -12,7 +12,8 @@
     <video id="video" width="900" height="600" controls>
         <!-- No source initially -->
         <source src="http://localhost:3003/v1/stream/play/{{.Filename}}?noConversion={{.NoConversion}}&crf={{.Crf}}">
-        Your browser does not support the video tag.
+        <!-- <source src="http://download.localhost/v1/stream/play/{{.Filename}}?noConversion={{.NoConversion}}&crf={{.Crf}}"> -->
+        <source src="https://download.movietracker.mom/v1/stream/play/{{.Filename}}?noConversion={{.NoConversion}}&crf={{.Crf}}">
     </video>
 
 </body>
