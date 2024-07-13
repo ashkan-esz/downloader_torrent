@@ -23,7 +23,7 @@ import (
 // @contact.email				support@swagger.io
 // @license.name				Apache 2.0
 // @license.url				http://www.apache.org/licenses/LICENSE-2.0.html
-// @host						download.movieTracker.mom
+// @host						download.movieTracker.site
 // @BasePath					/
 // @schemes					https
 // @securityDefinitions.apikey	BearerAuth

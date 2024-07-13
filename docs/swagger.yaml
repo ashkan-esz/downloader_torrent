@@ -72,7 +72,7 @@ definitions:
       errorMessage:
         type: string
     type: object
-host: download.movieTracker.mom
+host: download.movieTracker.site
 info:
   contact:
     email: support@swagger.io

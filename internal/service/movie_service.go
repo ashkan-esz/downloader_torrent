@@ -149,7 +149,7 @@ func (m *MovieService) DownloadFile(movieId string, torrentUrl string) (d *model
 		}
 	}
 
-	// sample: download.movieTracker.mom/downloads/ttt.mkv
+	// sample: download.movieTracker.site/downloads/ttt.mkv
 	localUrl := "/downloads/" + d.Name
 	err = m.movieRepo.SaveTorrentLocalLink(movieId, checkResult.Type, torrentUrl, localUrl)
 	return d, err

@@ -13,7 +13,7 @@
         <!-- No source initially -->
         <source src="http://localhost:3003/v1/stream/play/{{.Filename}}?noConversion={{.NoConversion}}&crf={{.Crf}}">
         <!-- <source src="http://download.localhost/v1/stream/play/{{.Filename}}?noConversion={{.NoConversion}}&crf={{.Crf}}"> -->
-        <source src="https://download.movietracker.mom/v1/stream/play/{{.Filename}}?noConversion={{.NoConversion}}&crf={{.Crf}}">
+        <source src="https://download.movietracker.site/v1/stream/play/{{.Filename}}?noConversion={{.NoConversion}}&crf={{.Crf}}">
     </video>
 
 </body>
