@@ -28,7 +28,7 @@ import (
 
 var router *fiber.App
 
-func InitRouter(movieHandler *handler.MovieHandler, streamHandler *handler.StreamHandler) {
+func InitRouter(torrentHandler *handler.TorrentHandler, streamHandler *handler.StreamHandler) {
 	var defaultErrorHandler = func(c *fiber.Ctx, err error) error {
 		// Status code defaults to 500
 		code := fiber.StatusInternalServerError
@@ -87,10 +87,10 @@ func InitRouter(movieHandler *handler.MovieHandler, streamHandler *handler.Strea
 
 	torrentRoutes := router.Group("v1/torrent")
 	{
-		torrentRoutes.Put("/download/:movieId", middleware.AuthMiddleware, movieHandler.DownloadTorrent)
-		torrentRoutes.Put("/cancel/:filename", middleware.AuthMiddleware, movieHandler.CancelDownload)
-		torrentRoutes.Delete("/remove/:filename", middleware.AuthMiddleware, movieHandler.RemoveDownload)
-		torrentRoutes.Get("/status", middleware.AuthMiddleware, movieHandler.TorrentStatus)
+		torrentRoutes.Put("/download/:movieId", middleware.AuthMiddleware, torrentHandler.DownloadTorrent)
+		torrentRoutes.Put("/cancel/:filename", middleware.AuthMiddleware, torrentHandler.CancelDownload)
+		torrentRoutes.Delete("/remove/:filename", middleware.AuthMiddleware, torrentHandler.RemoveDownload)
+		torrentRoutes.Get("/status", middleware.AuthMiddleware, torrentHandler.TorrentStatus)
 	}
 
 	streamRoutes := router.Group("v1/stream")

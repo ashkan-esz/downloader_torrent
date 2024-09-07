@@ -12,20 +12,20 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-type IMovieHandler interface {
+type ITorrentHandler interface {
 	DownloadTorrent(c *fiber.Ctx) error
 	CancelDownload(c *fiber.Ctx) error
 	RemoveDownload(c *fiber.Ctx) error
 	TorrentStatus(c *fiber.Ctx) error
 }
 
-type MovieHandler struct {
-	movieService service.IMovieService
+type TorrentHandler struct {
+	torrentService service.ITorrentService
 }
 
-func NewMovieHandler(movieService service.IMovieService) *MovieHandler {
-	return &MovieHandler{
-		movieService: movieService,
+func NewTorrentHandler(torrentService service.ITorrentService) *TorrentHandler {
+	return &TorrentHandler{
+		torrentService: torrentService,
 	}
 }
 
@@ -43,7 +43,7 @@ func NewMovieHandler(movieService service.IMovieService) *MovieHandler {
 //	@Failure		400,401,404	{object}	response.ResponseErrorModel
 //	@Security		BearerAuth
 //	@Router			/v1/torrent/download/:movieId [put]
-func (m *MovieHandler) DownloadTorrent(c *fiber.Ctx) error {
+func (m *TorrentHandler) DownloadTorrent(c *fiber.Ctx) error {
 	movieId := c.Params("movieId", "")
 	if movieId == "" || movieId == ":link" {
 		return response.ResponseError(c, "Invalid movieId", fiber.StatusBadRequest)
@@ -54,7 +54,7 @@ func (m *MovieHandler) DownloadTorrent(c *fiber.Ctx) error {
 	}
 
 	//jwtUserData := c.Locals("jwtUserData").(*util.MyJwtClaims)
-	res, err := m.movieService.DownloadFile(movieId, link)
+	res, err := m.torrentService.DownloadFile(movieId, link)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return response.ResponseError(c, "Torrent link not found in db", fiber.StatusNotFound)
@@ -77,13 +77,13 @@ func (m *MovieHandler) DownloadTorrent(c *fiber.Ctx) error {
 //	@Failure		400,401		{object}	response.ResponseErrorModel
 //	@Security		BearerAuth
 //	@Router			/v1/torrent/cancel/:filename [put]
-func (m *MovieHandler) CancelDownload(c *fiber.Ctx) error {
+func (m *TorrentHandler) CancelDownload(c *fiber.Ctx) error {
 	filename := c.Params("filename", "")
 	if filename == "" || filename == ":filename" {
 		return response.ResponseError(c, "Invalid filename", fiber.StatusBadRequest)
 	}
 
-	err := m.movieService.CancelDownload(filename)
+	err := m.torrentService.CancelDownload(filename)
 	if err != nil {
 		return response.ResponseError(c, err.Error(), fiber.StatusInternalServerError)
 	}
@@ -101,13 +101,13 @@ func (m *MovieHandler) CancelDownload(c *fiber.Ctx) error {
 //	@Failure		400,401		{object}	response.ResponseErrorModel
 //	@Security		BearerAuth
 //	@Router			/v1/torrent/remove/:filename [delete]
-func (m *MovieHandler) RemoveDownload(c *fiber.Ctx) error {
+func (m *TorrentHandler) RemoveDownload(c *fiber.Ctx) error {
 	filename := c.Params("filename", "")
 	if filename == "" || filename == ":filename" {
 		return response.ResponseError(c, "Invalid filename", fiber.StatusBadRequest)
 	}
 
-	err := m.movieService.RemoveDownload(filename)
+	err := m.torrentService.RemoveDownload(filename)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return response.ResponseError(c, "File not found", fiber.StatusNotFound)
@@ -127,9 +127,9 @@ func (m *MovieHandler) RemoveDownload(c *fiber.Ctx) error {
 //	@Failure		400,401	{object}	response.ResponseErrorModel
 //	@Security		BearerAuth
 //	@Router			/v1/torrent/status [get]
-func (m *MovieHandler) TorrentStatus(c *fiber.Ctx) error {
-	downloadingFiles := m.movieService.GetDownloadingFiles()
-	localFiles := m.movieService.GetLocalFiles()
+func (m *TorrentHandler) TorrentStatus(c *fiber.Ctx) error {
+	downloadingFiles := m.torrentService.GetDownloadingFiles()
+	localFiles := m.torrentService.GetLocalFiles()
 
 	res := model.TorrentStatusRes{
 		DownloadingFiles: downloadingFiles,

@@ -10,18 +10,18 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type IMovieRepository interface {
+type ITorrentRepository interface {
 	CheckTorrentLinkExist(movieId string, torrentUrl string) (*CheckTorrentLinkExistRes, error)
 	SaveTorrentLocalLink(movieId string, movieType string, torrentUrl string, localUrl string) error
 	RemoveTorrentLocalLink(movieType string, localUrl string) error
 }
 
-type MovieRepository struct {
+type TorrentRepository struct {
 	mongodb *mongo.Database
 }
 
-func NewMovieRepository(mongodb *mongo.Database) *MovieRepository {
-	return &MovieRepository{mongodb: mongodb}
+func NewTorrentRepository(mongodb *mongo.Database) *TorrentRepository {
+	return &TorrentRepository{mongodb: mongodb}
 }
 
 //------------------------------------------
@@ -35,7 +35,7 @@ type CheckTorrentLinkExistRes struct {
 //------------------------------------------
 //------------------------------------------
 
-func (m *MovieRepository) CheckTorrentLinkExist(movieId string, torrentUrl string) (*CheckTorrentLinkExistRes, error) {
+func (m *TorrentRepository) CheckTorrentLinkExist(movieId string, torrentUrl string) (*CheckTorrentLinkExistRes, error) {
 	id, err := primitive.ObjectIDFromHex(movieId)
 	if err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ func (m *MovieRepository) CheckTorrentLinkExist(movieId string, torrentUrl strin
 	return &result, nil
 }
 
-func (m *MovieRepository) SaveTorrentLocalLink(movieId string, movieType string, torrentUrl string, localUrl string) error {
+func (m *TorrentRepository) SaveTorrentLocalLink(movieId string, movieType string, torrentUrl string, localUrl string) error {
 	id, err := primitive.ObjectIDFromHex(movieId)
 	if err != nil {
 		return err
@@ -97,7 +97,7 @@ func (m *MovieRepository) SaveTorrentLocalLink(movieId string, movieType string,
 	return err
 }
 
-func (m *MovieRepository) RemoveTorrentLocalLink(movieType string, localUrl string) error {
+func (m *TorrentRepository) RemoveTorrentLocalLink(movieType string, localUrl string) error {
 	linkQuery := "seasons.episodes.torrentLinks.localLink"
 	if strings.Contains(movieType, "movie") {
 		linkQuery = "qualities.torrentLinks.localLink"

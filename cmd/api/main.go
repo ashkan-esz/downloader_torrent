@@ -70,13 +70,13 @@ func main() {
 	}
 	go configs.LoadDbConfigs(mongoDB.GetDB())
 
-	movieRep := repository.NewMovieRepository(mongoDB.GetDB())
-	movieSvc := service.NewMovieService(movieRep)
-	movieHandler := handler.NewMovieHandler(movieSvc)
+	torrentRep := repository.NewTorrentRepository(mongoDB.GetDB())
+	torrentSvc := service.NewTorrentService(torrentRep)
+	torrentHandler := handler.NewTorrentHandler(torrentSvc)
 
-	streamSvc := service.NewStreamService(movieRep)
+	streamSvc := service.NewStreamService(torrentRep)
 	streamHandler := handler.NewStreamHandler(streamSvc)
 
-	api.InitRouter(movieHandler, streamHandler)
+	api.InitRouter(torrentHandler, streamHandler)
 	api.Start("0.0.0.0:" + configs.GetConfigs().Port)
 }

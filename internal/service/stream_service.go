@@ -30,15 +30,15 @@ type IStreamService interface {
 }
 
 type StreamService struct {
-	movieRepo          repository.IMovieRepository
+	torrentRepo        repository.ITorrentRepository
 	downloadDir        string
 	convertingFiles    []*model.ConvertingFile
 	convertingFilesMux *sync.Mutex
 }
 
-func NewStreamService(movieRepo repository.IMovieRepository) *StreamService {
+func NewStreamService(torrentRepo repository.ITorrentRepository) *StreamService {
 	return &StreamService{
-		movieRepo:          movieRepo,
+		torrentRepo:        torrentRepo,
 		downloadDir:        "./downloads/",
 		convertingFiles:    make([]*model.ConvertingFile, 0),
 		convertingFilesMux: &sync.Mutex{},

@@ -17,7 +17,7 @@ import (
 	"github.com/anacrolix/torrent"
 )
 
-type IMovieService interface {
+type ITorrentService interface {
 	DownloadFile(movieId string, torrentUrl string) (*model.DownloadingFile, error)
 	CancelDownload(fileName string) error
 	RemoveDownload(fileName string) error
@@ -28,15 +28,15 @@ type IMovieService interface {
 	RemoveTorrentMetaFile(metaFileName string) error
 }
 
-type MovieService struct {
-	movieRepo           repository.IMovieRepository
+type TorrentService struct {
+	torrentRepo         repository.ITorrentRepository
 	torrentClient       *torrent.Client
 	downloadDir         string
 	downloadingFiles    []*model.DownloadingFile
 	downloadingFilesMux *sync.RWMutex
 }
 
-func NewMovieService(movieRepo repository.IMovieRepository) *MovieService {
+func NewTorrentService(torrentRepo repository.ITorrentRepository) *TorrentService {
 	config := torrent.NewDefaultClientConfig()
 	config.DataDir = "./downloads"
 	config.Debug = false
@@ -44,8 +44,8 @@ func NewMovieService(movieRepo repository.IMovieRepository) *MovieService {
 	torrentClient, _ := torrent.NewClient(config)
 	//defer torrentClient.Close()
 
-	return &MovieService{
-		movieRepo:           movieRepo,
+	return &TorrentService{
+		torrentRepo:         torrentRepo,
 		torrentClient:       torrentClient,
 		downloadDir:         "./downloads/",
 		downloadingFiles:    make([]*model.DownloadingFile, 0),
@@ -56,7 +56,7 @@ func NewMovieService(movieRepo repository.IMovieRepository) *MovieService {
 //------------------------------------------
 //------------------------------------------
 
-func (m *MovieService) DownloadFile(movieId string, torrentUrl string) (d *model.DownloadingFile, err error) {
+func (m *TorrentService) DownloadFile(movieId string, torrentUrl string) (d *model.DownloadingFile, err error) {
 	diskUsage, err := m.GetDiskSpaceUsage()
 	if err != nil {
 		return nil, err
@@ -65,7 +65,7 @@ func (m *MovieService) DownloadFile(movieId string, torrentUrl string) (d *model
 		return nil, errors.New("maximum disk usage exceeded")
 	}
 
-	checkResult, err := m.movieRepo.CheckTorrentLinkExist(movieId, torrentUrl)
+	checkResult, err := m.torrentRepo.CheckTorrentLinkExist(movieId, torrentUrl)
 	if err != nil {
 		return nil, err
 	}
@@ -151,11 +151,11 @@ func (m *MovieService) DownloadFile(movieId string, torrentUrl string) (d *model
 
 	// sample: download.movieTracker.site/downloads/ttt.mkv
 	localUrl := "/downloads/" + d.Name
-	err = m.movieRepo.SaveTorrentLocalLink(movieId, checkResult.Type, torrentUrl, localUrl)
+	err = m.torrentRepo.SaveTorrentLocalLink(movieId, checkResult.Type, torrentUrl, localUrl)
 	return d, err
 }
 
-func (m *MovieService) CancelDownload(fileName string) error {
+func (m *TorrentService) CancelDownload(fileName string) error {
 	m.downloadingFilesMux.Lock()
 	defer m.downloadingFilesMux.Unlock()
 	for i := range m.downloadingFiles {
@@ -171,7 +171,7 @@ func (m *MovieService) CancelDownload(fileName string) error {
 	return nil
 }
 
-func (m *MovieService) RemoveDownload(fileName string) error {
+func (m *TorrentService) RemoveDownload(fileName string) error {
 	if _, err := os.Stat("./downloads/" + fileName); errors.Is(err, os.ErrNotExist) {
 		return err
 	}
@@ -198,13 +198,13 @@ func (m *MovieService) RemoveDownload(fileName string) error {
 
 	localUrl := "/downloads/" + fileName
 	// don't know the type
-	_ = m.movieRepo.RemoveTorrentLocalLink("movie", localUrl)
-	_ = m.movieRepo.RemoveTorrentLocalLink("serial", localUrl)
+	_ = m.torrentRepo.RemoveTorrentLocalLink("movie", localUrl)
+	_ = m.torrentRepo.RemoveTorrentLocalLink("serial", localUrl)
 
 	return nil
 }
 
-func (m *MovieService) GetDownloadingFiles() []*model.DownloadingFile {
+func (m *TorrentService) GetDownloadingFiles() []*model.DownloadingFile {
 	m.downloadingFilesMux.Lock()
 	defer m.downloadingFilesMux.Unlock()
 	for i := range m.downloadingFiles {
@@ -218,7 +218,7 @@ func (m *MovieService) GetDownloadingFiles() []*model.DownloadingFile {
 	return m.downloadingFiles
 }
 
-func (m *MovieService) GetLocalFiles() []*model.LocalFile {
+func (m *TorrentService) GetLocalFiles() []*model.LocalFile {
 	m.downloadingFilesMux.Lock()
 	defer m.downloadingFilesMux.Unlock()
 	dir, err := os.ReadDir(m.downloadDir)
@@ -256,7 +256,7 @@ A:
 //-----------------------------------------
 //-----------------------------------------
 
-func (m *MovieService) GetDiskSpaceUsage() (int64, error) {
+func (m *TorrentService) GetDiskSpaceUsage() (int64, error) {
 	files, err := os.ReadDir(m.downloadDir)
 	if err != nil {
 		return 0, err
@@ -278,7 +278,7 @@ func (m *MovieService) GetDiskSpaceUsage() (int64, error) {
 //-----------------------------------------
 //-----------------------------------------
 
-func (m *MovieService) DownloadTorrentMetaFile(url string, location string) (string, error) {
+func (m *TorrentService) DownloadTorrentMetaFile(url string, location string) (string, error) {
 	metaFileName := strings.Replace(url, "https://", "", 1)
 	metaFileName = strings.ReplaceAll(metaFileName, "/", "-")
 
@@ -308,7 +308,7 @@ func (m *MovieService) DownloadTorrentMetaFile(url string, location string) (str
 	return metaFileName, nil
 }
 
-func (m *MovieService) RemoveTorrentMetaFile(metaFileName string) error {
+func (m *TorrentService) RemoveTorrentMetaFile(metaFileName string) error {
 	err := os.Remove(m.downloadDir + metaFileName)
 	if err != nil {
 		errorMessage := fmt.Sprintf("Error on removing torrent meta file: %s", err)
@@ -317,7 +317,7 @@ func (m *MovieService) RemoveTorrentMetaFile(metaFileName string) error {
 	return err
 }
 
-func (m *MovieService) removeTorrentFile(filename string) error {
+func (m *TorrentService) removeTorrentFile(filename string) error {
 	err := os.Remove(m.downloadDir + filename)
 	if err != nil {
 		errorMessage := fmt.Sprintf("Error on removing torrent file: %s", err)
