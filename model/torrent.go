@@ -1,10 +1,15 @@
 package model
 
-import "github.com/anacrolix/torrent"
+import (
+	"time"
+
+	"github.com/anacrolix/torrent"
+)
 
 type TorrentStatusRes struct {
 	DownloadingFiles []*DownloadingFile `json:"downloadingFiles"`
 	LocalFiles       []*LocalFile       `json:"localFiles"`
+	DiskInfo         *DiskInfo          `json:"diskInfo"`
 }
 
 type DownloadingFile struct {
@@ -17,6 +22,8 @@ type DownloadingFile struct {
 	TitleId        string           `json:"titleId"`
 	TitleName      string           `json:"titleName"`
 	TitleType      string           `json:"titleType"`
+	StartTime      time.Time        `json:"startTime"`
+	Error          error            `json:"error"`
 }
 
 type LocalFile struct {
@@ -35,4 +42,10 @@ type ConvertingFile struct {
 	Name     string  `json:"name"`
 	Size     int64   `json:"size"`
 	Duration float64 `json:"duration"`
+}
+
+type DiskInfo struct {
+	TotalFilesSizeMb      int64 `json:"totalFilesSizeMb"`
+	MaxDownloadSpaceMb    int64 `json:"maxDownloadSpaceMb"`
+	DownloadMaxFileSizeMb int64 `json:"DownloadMaxFileSizeMb"`
 }

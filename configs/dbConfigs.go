@@ -42,7 +42,7 @@ func GetDbConfigs() DbConfigData {
 }
 
 func LoadDbConfigs(mongodb *mongo.Database) {
-	tick := time.NewTicker(30 * time.Minute)
+	tick := time.NewTicker(15 * time.Minute)
 	load(mongodb)
 	defer rwm.Unlock()
 	for range tick.C {

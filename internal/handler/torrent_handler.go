@@ -2,7 +2,6 @@ package handler
 
 import (
 	"downloader_torrent/internal/service"
-	"downloader_torrent/model"
 	"downloader_torrent/pkg/response"
 	"errors"
 	"os"
@@ -128,13 +127,7 @@ func (m *TorrentHandler) RemoveDownload(c *fiber.Ctx) error {
 //	@Security		BearerAuth
 //	@Router			/v1/torrent/status [get]
 func (m *TorrentHandler) TorrentStatus(c *fiber.Ctx) error {
-	downloadingFiles := m.torrentService.GetDownloadingFiles()
-	localFiles := m.torrentService.GetLocalFiles()
-
-	res := model.TorrentStatusRes{
-		DownloadingFiles: downloadingFiles,
-		LocalFiles:       localFiles,
-	}
+	res := m.torrentService.GetTorrentStatus()
 
 	return response.ResponseOKWithData(c, res)
 }

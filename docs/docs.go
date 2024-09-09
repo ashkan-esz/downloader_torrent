@@ -321,17 +321,35 @@ const docTemplate = `{
                 }
             }
         },
+        "model.DiskInfo": {
+            "type": "object",
+            "properties": {
+                "DownloadMaxFileSizeMb": {
+                    "type": "integer"
+                },
+                "maxDownloadSpaceMb": {
+                    "type": "integer"
+                },
+                "totalFilesSizeMb": {
+                    "type": "integer"
+                }
+            }
+        },
         "model.DownloadingFile": {
             "type": "object",
             "properties": {
                 "downloadedSize": {
                     "type": "integer"
                 },
+                "error": {},
                 "name": {
                     "type": "string"
                 },
                 "size": {
                     "type": "integer"
+                },
+                "startTime": {
+                    "type": "string"
                 },
                 "state": {
                     "type": "string"
@@ -381,6 +399,9 @@ const docTemplate = `{
         "model.TorrentStatusRes": {
             "type": "object",
             "properties": {
+                "diskInfo": {
+                    "$ref": "#/definitions/model.DiskInfo"
+                },
                 "downloadingFiles": {
                     "type": "array",
                     "items": {
