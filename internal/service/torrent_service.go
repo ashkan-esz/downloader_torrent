@@ -86,11 +86,7 @@ func (m *TorrentService) GetTorrentStatus() *model.TorrentStatusRes {
 //------------------------------------------
 
 func (m *TorrentService) DownloadFile(movieId string, torrentUrl string) (d *model.DownloadingFile, err error) {
-	diskUsage, err := m.GetDiskSpaceUsage()
-	if err != nil {
-		return nil, err
-	}
-	if diskUsage >= int64(configs.GetConfigs().MaxDownloadSpaceGb*1024*1024*1024) {
+	if m.diskInfo.RemainingSpaceMb < m.diskInfo.Configs.DownloadSpaceThresholdMb && m.diskInfo.Configs.DownloadSpaceThresholdMb > 0 {
 		return nil, errors.New("maximum disk usage exceeded")
 	}
 
@@ -155,15 +151,20 @@ func (m *TorrentService) DownloadFile(movieId string, torrentUrl string) (d *mod
 	d.Torrent = t
 
 	//---------------------------------------------
-	dbconfig := configs.GetDbConfigs()
 	if d.Size == 0 {
 		return nil, errors.New("File is empty")
 	}
 
-	if d.Size > dbconfig.TorrentDownloadMaxFileSize*1024*1024 {
-		m := fmt.Sprintf("File size exceeds the limit (%vmb)", dbconfig.TorrentDownloadMaxFileSize)
+	if d.Size > m.diskInfo.Configs.DownloadFileSizeLimitMb*1024*1024 {
+		m := fmt.Sprintf("File size exceeds the limit (%vmb)", m.diskInfo.Configs.DownloadFileSizeLimitMb)
 		return nil, errors.New(m)
 	}
+
+	if d.Size > (m.diskInfo.RemainingSpaceMb-200)*1024*1024 {
+		m := fmt.Sprintf("Not Enough space left (%vmb/%vmb)", d.Size/(1024*1024), m.diskInfo.RemainingSpaceMb-200)
+		return nil, errors.New(m)
+	}
+
 	//---------------------------------------------
 
 	go func() {
@@ -342,7 +343,7 @@ A:
 //-----------------------------------------
 
 func (m *TorrentService) UpdateDiskInfo(done <-chan bool) {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -353,16 +354,44 @@ func (m *TorrentService) UpdateDiskInfo(done <-chan bool) {
 		case <-ticker.C:
 			totalFilesSize, _ := m.GetDiskSpaceUsage()
 
-			m.diskInfo = &model.DiskInfo{
-				TotalFilesSizeMb:      totalFilesSize / (1024 * 10224), //mb
-				MaxDownloadSpaceMb:    int64(configs.GetConfigs().MaxDownloadSpaceGb * 1024),
-				DownloadMaxFileSizeMb: configs.GetDbConfigs().TorrentDownloadMaxFileSize,
+			dbConfigs := configs.GetDbConfigs()
+			info := &model.DiskInfo{
+				Configs: &model.DiskInfoConfigs{
+					DownloadSpaceLimitMb:     dbConfigs.TorrentDownloadMaxSpaceSize,
+					DownloadFileSizeLimitMb:  dbConfigs.TorrentDownloadMaxFileSize,
+					DownloadSpaceThresholdMb: dbConfigs.TorrentDownloadSpaceThresholdSize,
+				},
+				TotalFilesSizeMb: totalFilesSize / (1024 * 1024), //mb
 			}
+
+			localFilesSize := int64(0)
+			for _, file := range m.localFiles {
+				localFilesSize += file.Size / (1024 * 1024)
+			}
+			downloadFilesSize := int64(0)
+			downloadFilesCurrentSize := int64(0)
+			for _, file := range m.downloadingFiles {
+				downloadFilesSize += file.Size / (1024 * 1024)
+				downloadFilesCurrentSize += file.DownloadedSize / (1024 * 1024)
+			}
+
+			info.LocalFilesSizeMb = localFilesSize
+			info.DownloadingFilesFinalSizeMb = downloadFilesSize
+			info.DownloadingFilesCurrentSizeMb = downloadFilesCurrentSize
+
+			maxUsedSpace := maxInt64(info.TotalFilesSizeMb, localFilesSize+downloadFilesSize)
+			info.RemainingSpaceMb = info.Configs.DownloadSpaceLimitMb - maxUsedSpace
+
+			m.diskInfo = info
+
+			//todo : handle when theres no space and running downloads
 		}
 	}
 }
 
 func (m *TorrentService) GetDiskSpaceUsage() (int64, error) {
+	// includes the current size of downloading files
+
 	files, err := os.ReadDir(m.downloadDir)
 	if err != nil {
 		return 0, err
@@ -434,3 +463,10 @@ func (m *TorrentService) removeTorrentFile(filename string) error {
 
 //-----------------------------------------
 //-----------------------------------------
+
+func maxInt64(a, b int64) int64 {
+	if a > b {
+		return a
+	}
+	return b
+}

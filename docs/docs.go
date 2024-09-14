@@ -324,13 +324,36 @@ const docTemplate = `{
         "model.DiskInfo": {
             "type": "object",
             "properties": {
-                "DownloadMaxFileSizeMb": {
+                "configs": {
+                    "$ref": "#/definitions/model.DiskInfoConfigs"
+                },
+                "downloadingFilesCurrentSizeMb": {
                     "type": "integer"
                 },
-                "maxDownloadSpaceMb": {
+                "downloadingFilesFinalSizeMb": {
+                    "type": "integer"
+                },
+                "localFilesSizeMb": {
+                    "type": "integer"
+                },
+                "remainingSpaceMb": {
                     "type": "integer"
                 },
                 "totalFilesSizeMb": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.DiskInfoConfigs": {
+            "type": "object",
+            "properties": {
+                "downloadFileSizeLimitMb": {
+                    "type": "integer"
+                },
+                "downloadSpaceLimitMb": {
+                    "type": "integer"
+                },
+                "downloadSpaceThresholdMb": {
                     "type": "integer"
                 }
             }

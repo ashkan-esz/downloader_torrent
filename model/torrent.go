@@ -45,7 +45,16 @@ type ConvertingFile struct {
 }
 
 type DiskInfo struct {
-	TotalFilesSizeMb      int64 `json:"totalFilesSizeMb"`
-	MaxDownloadSpaceMb    int64 `json:"maxDownloadSpaceMb"`
-	DownloadMaxFileSizeMb int64 `json:"DownloadMaxFileSizeMb"`
+	Configs                       *DiskInfoConfigs `json:"configs"`
+	TotalFilesSizeMb              int64            `json:"totalFilesSizeMb"`
+	LocalFilesSizeMb              int64            `json:"localFilesSizeMb"`
+	DownloadingFilesFinalSizeMb   int64            `json:"downloadingFilesFinalSizeMb"`
+	DownloadingFilesCurrentSizeMb int64            `json:"downloadingFilesCurrentSizeMb"`
+	RemainingSpaceMb              int64            `json:"remainingSpaceMb"`
+}
+
+type DiskInfoConfigs struct {
+	DownloadSpaceThresholdMb int64 `json:"downloadSpaceThresholdMb"`
+	DownloadSpaceLimitMb     int64 `json:"downloadSpaceLimitMb"`
+	DownloadFileSizeLimitMb  int64 `json:"downloadFileSizeLimitMb"`
 }

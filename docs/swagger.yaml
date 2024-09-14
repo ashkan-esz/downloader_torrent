@@ -13,11 +13,26 @@ definitions:
     type: object
   model.DiskInfo:
     properties:
-      DownloadMaxFileSizeMb:
+      configs:
+        $ref: '#/definitions/model.DiskInfoConfigs'
+      downloadingFilesCurrentSizeMb:
         type: integer
-      maxDownloadSpaceMb:
+      downloadingFilesFinalSizeMb:
+        type: integer
+      localFilesSizeMb:
+        type: integer
+      remainingSpaceMb:
         type: integer
       totalFilesSizeMb:
+        type: integer
+    type: object
+  model.DiskInfoConfigs:
+    properties:
+      downloadFileSizeLimitMb:
+        type: integer
+      downloadSpaceLimitMb:
+        type: integer
+      downloadSpaceThresholdMb:
         type: integer
     type: object
   model.DownloadingFile:

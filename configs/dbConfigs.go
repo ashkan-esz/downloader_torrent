@@ -14,22 +14,24 @@ import (
 )
 
 type DbConfigData struct {
-	Id                         primitive.ObjectID `bson:"_id"`
-	Title                      string             `bson:"title"`
-	CorsAllowedOrigins         []string           `bson:"corsAllowedOrigins"`
-	DisableTestUserRequests    bool               `bson:"disableTestUserRequests"`
-	DisableCrawlerForDuration  int                `bson:"disableCrawlerForDuration"`
-	DisableCrawlerStart        int                `bson:"disableCrawlerStart"`
-	CrawlerDisabled            bool               `bson:"crawlerDisabled"`
-	DisableCrawler             bool               `bson:"disableCrawler"`
-	DevelopmentFaze            bool               `bson:"developmentFaze"`
-	DevelopmentFazeStart       int                `bson:"developmentFazeStart"`
-	MediaFileSizeLimit         int64              `bson:"mediaFileSizeLimit"`
-	ProfileFileSizeLimit       int64              `bson:"profileFileSizeLimit"`
-	ProfileImageCountLimit     int64              `bson:"profileImageCountLimit"`
-	MediaFileExtensionLimit    string             `bson:"mediaFileExtensionLimit"`
-	ProfileImageExtensionLimit string             `bson:"profileImageExtensionLimit"`
-	TorrentDownloadMaxFileSize int64              `bson:"torrentDownloadMaxFileSize"`
+	Id                                primitive.ObjectID `bson:"_id"`
+	Title                             string             `bson:"title"`
+	CorsAllowedOrigins                []string           `bson:"corsAllowedOrigins"`
+	DisableTestUserRequests           bool               `bson:"disableTestUserRequests"`
+	DisableCrawlerForDuration         int                `bson:"disableCrawlerForDuration"`
+	DisableCrawlerStart               int                `bson:"disableCrawlerStart"`
+	CrawlerDisabled                   bool               `bson:"crawlerDisabled"`
+	DisableCrawler                    bool               `bson:"disableCrawler"`
+	DevelopmentFaze                   bool               `bson:"developmentFaze"`
+	DevelopmentFazeStart              int                `bson:"developmentFazeStart"`
+	MediaFileSizeLimit                int64              `bson:"mediaFileSizeLimit"`
+	ProfileFileSizeLimit              int64              `bson:"profileFileSizeLimit"`
+	ProfileImageCountLimit            int64              `bson:"profileImageCountLimit"`
+	MediaFileExtensionLimit           string             `bson:"mediaFileExtensionLimit"`
+	ProfileImageExtensionLimit        string             `bson:"profileImageExtensionLimit"`
+	TorrentDownloadMaxSpaceSize       int64              `bson:"torrentDownloadMaxSpaceSize"`
+	TorrentDownloadMaxFileSize        int64              `bson:"torrentDownloadMaxFileSize"`
+	TorrentDownloadSpaceThresholdSize int64              `bson:"torrentDownloadSpaceThresholdSize"`
 }
 
 var rwm sync.RWMutex
