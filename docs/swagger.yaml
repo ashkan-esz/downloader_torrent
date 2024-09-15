@@ -40,6 +40,8 @@ definitions:
       downloadedSize:
         type: integer
       error: {}
+      metaFileName:
+        type: string
       name:
         type: string
       size:

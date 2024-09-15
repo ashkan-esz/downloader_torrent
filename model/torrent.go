@@ -15,6 +15,7 @@ type TorrentStatusRes struct {
 type DownloadingFile struct {
 	State          string           `json:"state"`
 	Name           string           `json:"name"`
+	MetaFileName   string           `json:"metaFileName"`
 	Size           int64            `json:"size"`
 	DownloadedSize int64            `json:"downloadedSize"`
 	TorrentUrl     string           `json:"torrentUrl"`

@@ -365,6 +365,9 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "error": {},
+                "metaFileName": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },

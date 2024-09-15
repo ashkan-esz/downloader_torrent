@@ -27,10 +27,13 @@ type ITorrentService interface {
 	GetLocalFiles() []*model.LocalFile
 	UpdateDownloadingFiles(done <-chan bool)
 	UpdateLocalFiles(done <-chan bool)
+	CleanUp(done <-chan bool)
 	UpdateDiskInfo(done <-chan bool)
 	GetDiskSpaceUsage() (int64, error)
 	DownloadTorrentMetaFile(url string, location string) (string, error)
 	RemoveTorrentMetaFile(metaFileName string) error
+	RemoveIncompleteDownloadFiles() error
+	RemoveOrphanTorrentMetaFiles() error
 }
 
 type TorrentService struct {
@@ -66,6 +69,7 @@ func NewTorrentService(torrentRepo repository.ITorrentRepository) *TorrentServic
 	done := make(chan bool)
 	go service.UpdateDownloadingFiles(done)
 	go service.UpdateLocalFiles(done)
+	go service.CleanUp(done)
 	go service.UpdateDiskInfo(done)
 
 	return service
@@ -104,6 +108,7 @@ func (m *TorrentService) DownloadFile(movieId string, torrentUrl string) (d *mod
 	d = &model.DownloadingFile{
 		State:          "started",
 		Name:           "",
+		MetaFileName:   "",
 		Size:           0,
 		DownloadedSize: 0,
 		TorrentUrl:     torrentUrl,
@@ -123,22 +128,24 @@ func (m *TorrentService) DownloadFile(movieId string, torrentUrl string) (d *mod
 			downloadDone <- true
 			d.Error = err
 			_ = m.removeTorrentFile(d.Name)
+			if d.MetaFileName != "" {
+				_ = m.RemoveTorrentMetaFile(d.MetaFileName)
+			}
 		}
 	}()
 
 	var t *torrent.Torrent
-	var metaFileName string
 	if strings.HasPrefix(torrentUrl, "magent:?") {
 		d.State = "adding magnet"
 		t, err = m.torrentClient.AddMagnet(torrentUrl)
 	} else {
 		d.State = "downloading torrent meta file"
-		metaFileName, err = m.DownloadTorrentMetaFile(torrentUrl, m.downloadDir)
+		d.MetaFileName, err = m.DownloadTorrentMetaFile(torrentUrl, m.downloadDir)
 		if err != nil {
 			return nil, err
 		}
 		d.State = "adding torrent"
-		t, err = m.torrentClient.AddTorrentFromFile(m.downloadDir + metaFileName)
+		t, err = m.torrentClient.AddTorrentFromFile(m.downloadDir + d.MetaFileName)
 	}
 	d.State = "getting info"
 	if err != nil {
@@ -179,6 +186,9 @@ func (m *TorrentService) DownloadFile(movieId string, torrentUrl string) (d *mod
 			case <-ticker.C:
 				d.DownloadedSize = d.Torrent.BytesCompleted()
 				if d.Size == d.DownloadedSize {
+					if d.MetaFileName != "" {
+						_ = m.RemoveTorrentMetaFile(d.MetaFileName)
+					}
 					return
 				}
 			}
@@ -187,13 +197,6 @@ func (m *TorrentService) DownloadFile(movieId string, torrentUrl string) (d *mod
 
 	d.State = "downloading"
 	t.DownloadAll()
-
-	if metaFileName != "" {
-		err = m.RemoveTorrentMetaFile(metaFileName)
-		if err != nil {
-			return nil, err
-		}
-	}
 
 	// sample: download.movieTracker.site/downloads/ttt.mkv
 	localUrl := "/downloads/" + d.Name
@@ -287,6 +290,22 @@ func (m *TorrentService) UpdateLocalFiles(done <-chan bool) {
 	}
 }
 
+func (m *TorrentService) CleanUp(done <-chan bool) {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-done:
+			//fmt.Println("Periodic task stopped")
+			return
+		case <-ticker.C:
+			_ = m.RemoveIncompleteDownloadFiles()
+			_ = m.RemoveOrphanTorrentMetaFiles()
+		}
+	}
+}
+
 //-----------------------------------------
 //-----------------------------------------
 
@@ -311,12 +330,20 @@ func (m *TorrentService) GetLocalFiles() []*model.LocalFile {
 	localFiles := []*model.LocalFile{}
 A:
 	for i := range dir {
-		if strings.Contains(dir[i].Name(), ".torrent.") || dir[i].IsDir() {
+		filename := dir[i].Name()
+		if strings.Contains(filename, ".torrent.") || strings.HasSuffix(filename, ".torrent") || dir[i].IsDir() {
 			continue
 		}
 		for i2 := range m.downloadingFiles {
-			if m.downloadingFiles[i2].Name == dir[i].Name() {
+			if m.downloadingFiles[i2].Name == filename {
 				// still downloading
+				continue A
+			}
+		}
+
+		for i2 := range dir {
+			if strings.Contains(dir[i2].Name(), fmt.Sprintf("-%v.torrent", filename)) {
+				// incomplete download
 				continue A
 			}
 		}
@@ -326,10 +353,10 @@ A:
 			continue
 		}
 		f := &model.LocalFile{
-			Name:         dir[i].Name(),
+			Name:         filename,
 			Size:         info.Size(),
-			DownloadLink: "/downloads/" + dir[i].Name(),
-			StreamLink:   "/v1/stream/" + dir[i].Name(),
+			DownloadLink: "/downloads/" + filename,
+			StreamLink:   "/v1/stream/" + filename,
 		}
 		localFiles = append(localFiles, f)
 	}
@@ -458,6 +485,66 @@ func (m *TorrentService) removeTorrentFile(filename string) error {
 		errorMessage := fmt.Sprintf("Error on removing torrent file: %s", err)
 		errorHandler.SaveError(errorMessage, err)
 	}
+	return err
+}
+
+func (m *TorrentService) RemoveOrphanTorrentMetaFiles() error {
+	dirs, err := os.ReadDir(m.downloadDir)
+	if err != nil {
+		return err
+	}
+
+A:
+	for _, dir := range dirs {
+		filename := dir.Name()
+		if strings.HasSuffix(filename, ".torrent") {
+			fileInfo, err := dir.Info()
+			if err == nil {
+				elapsedMin := time.Now().Sub(fileInfo.ModTime()).Minutes()
+				if elapsedMin > 5 {
+					for _, df := range m.downloadingFiles {
+						// check its downloading
+						if df.MetaFileName == filename {
+							continue A
+						}
+					}
+					_ = m.RemoveTorrentMetaFile(filename)
+				}
+			}
+		}
+	}
+
+	return err
+}
+
+func (m *TorrentService) RemoveIncompleteDownloadFiles() error {
+	dirs, err := os.ReadDir(m.downloadDir)
+	if err != nil {
+		return err
+	}
+
+A:
+	for _, dir := range dirs {
+		filename := dir.Name()
+		if !strings.Contains(filename, ".torrent") {
+			for _, df := range m.downloadingFiles {
+				// check its downloading
+				if df.Name == filename {
+					continue A
+				}
+			}
+			for _, dir2 := range dirs {
+				if strings.Contains(dir2.Name(), fmt.Sprintf("-%v.torrent", filename)) {
+					// incomplete download
+					err = m.removeTorrentFile(filename)
+					if err == nil {
+						err = m.RemoveTorrentMetaFile(dir2.Name())
+					}
+				}
+			}
+		}
+	}
+
 	return err
 }
 
