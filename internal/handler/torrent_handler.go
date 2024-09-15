@@ -5,6 +5,7 @@ import (
 	"downloader_torrent/pkg/response"
 	"errors"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -12,6 +13,7 @@ import (
 )
 
 type ITorrentHandler interface {
+	ServeLocalFile(c *fiber.Ctx) error
 	DownloadTorrent(c *fiber.Ctx) error
 	CancelDownload(c *fiber.Ctx) error
 	RemoveDownload(c *fiber.Ctx) error
@@ -30,6 +32,50 @@ func NewTorrentHandler(torrentService service.ITorrentService) *TorrentHandler {
 
 //------------------------------------------
 //------------------------------------------
+
+// ServeLocalFile godoc
+//
+//	@Summary		serve file
+//	@Description	serve files downloaded from torrent
+//	@Tags			Serve-Files
+//	@Param			filename	path		string	true	"filename"
+//	@Param			Range		header		string	true	"download/stream range"
+//	@Success		200			{object}	response.ResponseOKModel
+//	@Failure		400,401,404	{object}	response.ResponseErrorModel
+//	@Security		BearerAuth
+//	@Router			/v1/partial_download/:filename [get]
+func (m *TorrentHandler) ServeLocalFile(c *fiber.Ctx) error {
+	filename := c.Params("filename", "")
+	if filename == "" || filename == ":filename" {
+		return response.ResponseError(c, "Invalid filename", fiber.StatusBadRequest)
+	}
+
+	//return c.SendFile("./downloads/" + filename)
+
+	file, err := os.Open("./downloads/" + filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	fileInfo, _ := file.Stat()
+	fileSize := fileInfo.Size()
+
+	rangeHeader := c.Get("Range")
+	if rangeHeader != "" {
+		// Parse range header and serve partial content
+		// Implement range parsing logic here
+	}
+
+	// Serve full file if no range header
+	c.Set("Content-Type", "application/octet-stream")
+	c.Set("Content-Length", strconv.FormatInt(fileSize, 10))
+	err = c.SendFile(file.Name())
+	if err != nil {
+		return response.ResponseError(c, err.Error(), fiber.StatusInternalServerError)
+	}
+	return nil
+}
 
 // DownloadTorrent godoc
 //

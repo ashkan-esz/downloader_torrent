@@ -9,7 +9,6 @@ import (
 	"downloader_torrent/pkg/response"
 	"errors"
 	"fmt"
-	"net/http"
 	"slices"
 	"strings"
 	"time"
@@ -18,7 +17,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/gofiber/fiber/v2/middleware/helmet"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
 	"github.com/gofiber/fiber/v2/middleware/recover"
@@ -77,13 +75,28 @@ func InitRouter(torrentHandler *handler.TorrentHandler, streamHandler *handler.S
 		WaitForDelivery: false,
 	}))
 
-	router.Use("/downloads", filesystem.New(filesystem.Config{
-		Root:   http.Dir("./downloads"),
-		Browse: true,
-		//Index:        "index.html",
-		//NotFoundFile: "404.html",
-		MaxAge: 3600,
-	}))
+	router.Static("/direct_download", "downloads", fiber.Static{
+		Compress:       false,
+		ByteRange:      true,
+		Browse:         true,
+		Download:       false,
+		Index:          "",
+		CacheDuration:  0,
+		MaxAge:         3600,
+		ModifyResponse: nil,
+		Next:           nil,
+	})
+
+	//router.Use("/downloads", filesystem.New(filesystem.Config{
+	//	Root:   http.Dir("./downloads"),
+	//	Browse: true,
+	//	//Index:        "index.html",
+	//	//NotFoundFile: "404.html",
+	//	MaxAge: 3600,
+	//}))
+
+	// This allows clients to request specific parts of a file, which is useful for resumable downloads or streaming media.
+	router.Get("/partial_download/:filename", torrentHandler.ServeLocalFile)
 
 	torrentRoutes := router.Group("v1/torrent")
 	{

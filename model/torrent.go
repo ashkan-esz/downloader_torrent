@@ -28,11 +28,11 @@ type DownloadingFile struct {
 }
 
 type LocalFile struct {
-	Name         string    `json:"name"`
-	Size         int64     `json:"size"`
-	DownloadLink string    `json:"downloadLink"`
-	StreamLink   string    `json:"streamLink"`
-	ExpireTime   time.Time `json:"expireTime"`
+	Name          string    `json:"name"`
+	Size          int64     `json:"size"`
+	DownloadLinks []string  `json:"downloadLinks"`
+	StreamLink    string    `json:"streamLink"`
+	ExpireTime    time.Time `json:"expireTime"`
 }
 
 type StreamStatusRes struct {

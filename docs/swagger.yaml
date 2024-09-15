@@ -63,8 +63,10 @@ definitions:
     type: object
   model.LocalFile:
     properties:
-      downloadLink:
-        type: string
+      downloadLinks:
+        items:
+          type: string
+        type: array
       expireTime:
         type: string
       name:
@@ -133,6 +135,42 @@ paths:
       summary: Show the status of server.
       tags:
       - System
+  /v1/partial_download/:filename:
+    get:
+      description: serve files downloaded from torrent
+      parameters:
+      - description: filename
+        in: path
+        name: filename
+        required: true
+        type: string
+      - description: download/stream range
+        in: header
+        name: Range
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.ResponseOKModel'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ResponseErrorModel'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ResponseErrorModel'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ResponseErrorModel'
+      security:
+      - BearerAuth: []
+      summary: serve file
+      tags:
+      - Serve-Files
   /v1/stream/play/:filename:
     get:
       description: stream downloaded file.

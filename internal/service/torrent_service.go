@@ -362,11 +362,14 @@ A:
 			expireHour = 48
 		}
 		f := &model.LocalFile{
-			Name:         filename,
-			Size:         info.Size(),
-			DownloadLink: "/downloads/" + filename,
-			StreamLink:   "/v1/stream/" + filename,
-			ExpireTime:   info.ModTime().Add(time.Duration(expireHour) * time.Hour),
+			Name: filename,
+			Size: info.Size(),
+			DownloadLinks: []string{
+				configs.GetConfigs().ServerAddress + "/direct_download/" + filename,
+				configs.GetConfigs().ServerAddress + "/partial_download/" + filename,
+			},
+			StreamLink: "/v1/stream/" + filename,
+			ExpireTime: info.ModTime().Add(time.Duration(expireHour) * time.Hour),
 		}
 		localFiles = append(localFiles, f)
 	}
@@ -564,6 +567,7 @@ func (m *TorrentService) RemoveExpiredLocalFiles() error {
 	defer m.localFilesMux.Unlock()
 
 	for _, lf := range m.localFiles {
+		//todo : check file is being downloading by users
 		if time.Now().After(lf.ExpireTime) {
 			// file is expired
 			_ = m.removeTorrentFile(lf.Name)

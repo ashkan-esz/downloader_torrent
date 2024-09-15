@@ -39,6 +39,62 @@
                 }
             }
         },
+        "/v1/partial_download/:filename": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "serve files downloaded from torrent",
+                "tags": [
+                    "Serve-Files"
+                ],
+                "summary": "serve file",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "filename",
+                        "name": "filename",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "download/stream range",
+                        "name": "Range",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.ResponseOKModel"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ResponseErrorModel"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ResponseErrorModel"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.ResponseErrorModel"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/stream/play/:filename": {
             "get": {
                 "security": [
@@ -397,8 +453,11 @@
         "model.LocalFile": {
             "type": "object",
             "properties": {
-                "downloadLink": {
-                    "type": "string"
+                "downloadLinks": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "expireTime": {
                     "type": "string"
