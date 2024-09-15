@@ -411,6 +411,9 @@
                 },
                 "torrentFilesExpireHour": {
                     "type": "integer"
+                },
+                "torrentFilesServingConcurrencyLimit": {
+                    "type": "integer"
                 }
             }
         },
@@ -493,6 +496,9 @@
         "model.TorrentStatusRes": {
             "type": "object",
             "properties": {
+                "activeDownloadsCounts": {
+                    "type": "integer"
+                },
                 "diskInfo": {
                     "$ref": "#/definitions/model.DiskInfo"
                 },

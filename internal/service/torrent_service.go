@@ -37,19 +37,22 @@ type ITorrentService interface {
 	RemoveExpiredLocalFiles() error
 	RemoveIncompleteDownloadFiles() error
 	RemoveOrphanTorrentMetaFiles() error
+	CheckConcurrentServingLimit() bool
 	IncrementFileDownloadCount(filename string) error
 	DecrementFileDownloadCount(filename string)
 }
 
 type TorrentService struct {
-	torrentRepo         repository.ITorrentRepository
-	torrentClient       *torrent.Client
-	downloadDir         string
-	downloadingFiles    []*model.DownloadingFile
-	downloadingFilesMux *sync.Mutex
-	localFiles          []*model.LocalFile
-	localFilesMux       *sync.Mutex
-	diskInfo            *model.DiskInfo
+	torrentRepo              repository.ITorrentRepository
+	torrentClient            *torrent.Client
+	downloadDir              string
+	downloadingFiles         []*model.DownloadingFile
+	downloadingFilesMux      *sync.Mutex
+	localFiles               []*model.LocalFile
+	localFilesMux            *sync.Mutex
+	diskInfo                 *model.DiskInfo
+	activeDownloadsCounts    int64
+	activeDownloadsCountsMux *sync.Mutex
 }
 
 var TorrentSvc *TorrentService
@@ -73,6 +76,8 @@ func NewTorrentService(torrentRepo repository.ITorrentRepository) *TorrentServic
 		diskInfo: &model.DiskInfo{
 			Configs: &model.DiskInfoConfigs{},
 		},
+		activeDownloadsCounts:    0,
+		activeDownloadsCountsMux: &sync.Mutex{},
 	}
 
 	done := make(chan bool)
@@ -91,9 +96,10 @@ func NewTorrentService(torrentRepo repository.ITorrentRepository) *TorrentServic
 
 func (m *TorrentService) GetTorrentStatus() *model.TorrentStatusRes {
 	return &model.TorrentStatusRes{
-		DownloadingFiles: m.downloadingFiles,
-		LocalFiles:       m.localFiles,
-		DiskInfo:         m.diskInfo,
+		DownloadingFiles:      m.downloadingFiles,
+		LocalFiles:            m.localFiles,
+		DiskInfo:              m.diskInfo,
+		ActiveDownloadsCounts: m.activeDownloadsCounts,
 	}
 }
 
@@ -438,10 +444,11 @@ func (m *TorrentService) UpdateDiskInfo(done <-chan bool) {
 			dbConfigs := configs.GetDbConfigs()
 			info := &model.DiskInfo{
 				Configs: &model.DiskInfoConfigs{
-					DownloadSpaceLimitMb:     dbConfigs.TorrentDownloadMaxSpaceSize,
-					DownloadFileSizeLimitMb:  dbConfigs.TorrentDownloadMaxFileSize,
-					DownloadSpaceThresholdMb: dbConfigs.TorrentDownloadSpaceThresholdSize,
-					TorrentFilesExpireHour:   dbConfigs.TorrentFilesExpireHour,
+					DownloadSpaceLimitMb:                dbConfigs.TorrentDownloadMaxSpaceSize,
+					DownloadFileSizeLimitMb:             dbConfigs.TorrentDownloadMaxFileSize,
+					DownloadSpaceThresholdMb:            dbConfigs.TorrentDownloadSpaceThresholdSize,
+					TorrentFilesExpireHour:              dbConfigs.TorrentFilesExpireHour,
+					TorrentFilesServingConcurrencyLimit: dbConfigs.TorrentFilesServingConcurrencyLimit,
 				},
 				TotalFilesSizeMb: totalFilesSize / (1024 * 1024), //mb
 			}
@@ -620,7 +627,20 @@ func (m *TorrentService) RemoveExpiredLocalFiles() error {
 //-----------------------------------------
 //-----------------------------------------
 
+func (m *TorrentService) CheckConcurrentServingLimit() bool {
+	m.activeDownloadsCountsMux.Lock()
+	defer m.activeDownloadsCountsMux.Unlock()
+
+	limit := m.diskInfo.Configs.TorrentFilesServingConcurrencyLimit
+
+	return m.activeDownloadsCounts < limit || limit == 0
+}
+
 func (m *TorrentService) IncrementFileDownloadCount(filename string) error {
+	m.activeDownloadsCountsMux.Lock()
+	m.activeDownloadsCounts++
+	defer m.activeDownloadsCountsMux.Unlock()
+
 	for _, lf := range m.localFiles {
 		if lf.Name == filename {
 			td := atomic.AddInt64(lf.TotalDownloads, 1)
@@ -634,6 +654,10 @@ func (m *TorrentService) IncrementFileDownloadCount(filename string) error {
 }
 
 func (m *TorrentService) DecrementFileDownloadCount(filename string) {
+	m.activeDownloadsCountsMux.Lock()
+	m.activeDownloadsCounts--
+	defer m.activeDownloadsCountsMux.Unlock()
+
 	for _, lf := range m.localFiles {
 		if lf.Name == filename {
 			ad := atomic.AddInt64(lf.ActiveDownloads, -1)

@@ -4,6 +4,7 @@ import (
 	"downloader_torrent/internal/service"
 	"downloader_torrent/pkg/response"
 	"errors"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -52,9 +53,17 @@ func (m *TorrentHandler) ServeLocalFile(c *fiber.Ctx) error {
 
 	//return c.SendFile("./downloads/" + filename)
 
+	if !m.torrentService.CheckConcurrentServingLimit() {
+		return response.ResponseError(c, "Server is busy", fiber.StatusServiceUnavailable)
+	}
+
 	file, err := os.Open("./downloads/" + filename)
 	if err != nil {
-		return err
+		if os.IsNotExist(err) {
+			return response.ResponseError(c, "File not found", fiber.StatusNotFound)
+		}
+		errorMessage := fmt.Sprintf("Error opening file [%v]: %v", filename, err)
+		return response.ResponseError(c, errorMessage, fiber.StatusInternalServerError)
 	}
 	defer file.Close()
 

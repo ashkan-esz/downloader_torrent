@@ -7,9 +7,10 @@ import (
 )
 
 type TorrentStatusRes struct {
-	DownloadingFiles []*DownloadingFile `json:"downloadingFiles"`
-	LocalFiles       []*LocalFile       `json:"localFiles"`
-	DiskInfo         *DiskInfo          `json:"diskInfo"`
+	DownloadingFiles      []*DownloadingFile `json:"downloadingFiles"`
+	LocalFiles            []*LocalFile       `json:"localFiles"`
+	DiskInfo              *DiskInfo          `json:"diskInfo"`
+	ActiveDownloadsCounts int64              `json:"activeDownloadsCounts"`
 }
 
 type DownloadingFile struct {
@@ -58,8 +59,9 @@ type DiskInfo struct {
 }
 
 type DiskInfoConfigs struct {
-	DownloadSpaceThresholdMb int64 `json:"downloadSpaceThresholdMb"`
-	DownloadSpaceLimitMb     int64 `json:"downloadSpaceLimitMb"`
-	DownloadFileSizeLimitMb  int64 `json:"downloadFileSizeLimitMb"`
-	TorrentFilesExpireHour   int64 `json:"torrentFilesExpireHour"`
+	DownloadSpaceThresholdMb            int64 `json:"downloadSpaceThresholdMb"`
+	DownloadSpaceLimitMb                int64 `json:"downloadSpaceLimitMb"`
+	DownloadFileSizeLimitMb             int64 `json:"downloadFileSizeLimitMb"`
+	TorrentFilesExpireHour              int64 `json:"torrentFilesExpireHour"`
+	TorrentFilesServingConcurrencyLimit int64 `json:"torrentFilesServingConcurrencyLimit"`
 }

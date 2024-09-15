@@ -414,6 +414,9 @@ const docTemplate = `{
                 },
                 "torrentFilesExpireHour": {
                     "type": "integer"
+                },
+                "torrentFilesServingConcurrencyLimit": {
+                    "type": "integer"
                 }
             }
         },
@@ -496,6 +499,9 @@ const docTemplate = `{
         "model.TorrentStatusRes": {
             "type": "object",
             "properties": {
+                "activeDownloadsCounts": {
+                    "type": "integer"
+                },
                 "diskInfo": {
                     "$ref": "#/definitions/model.DiskInfo"
                 },

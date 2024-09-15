@@ -36,6 +36,8 @@ definitions:
         type: integer
       torrentFilesExpireHour:
         type: integer
+      torrentFilesServingConcurrencyLimit:
+        type: integer
     type: object
   model.DownloadingFile:
     properties:
@@ -89,6 +91,8 @@ definitions:
     type: object
   model.TorrentStatusRes:
     properties:
+      activeDownloadsCounts:
+        type: integer
       diskInfo:
         $ref: '#/definitions/model.DiskInfo'
       downloadingFiles:
