@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/anacrolix/torrent"
+	"github.com/djherbis/times"
 )
 
 type ITorrentService interface {
@@ -361,6 +362,19 @@ A:
 		if expireHour == 0 {
 			expireHour = 48
 		}
+
+		var downloadTime time.Time
+		t, err := times.Stat(m.downloadDir + "/" + filename)
+		if err == nil {
+			downloadTime = t.BirthTime()
+			if downloadTime.Before(t.AccessTime()) {
+				downloadTime = t.AccessTime()
+			}
+		}
+		if downloadTime.IsZero() {
+			downloadTime = info.ModTime()
+		}
+
 		f := &model.LocalFile{
 			Name: filename,
 			Size: info.Size(),
@@ -369,7 +383,7 @@ A:
 				configs.GetConfigs().ServerAddress + "/partial_download/" + filename,
 			},
 			StreamLink: "/v1/stream/" + filename,
-			ExpireTime: info.ModTime().Add(time.Duration(expireHour) * time.Hour),
+			ExpireTime: downloadTime.Add(time.Duration(expireHour) * time.Hour),
 		}
 		localFiles = append(localFiles, f)
 	}
