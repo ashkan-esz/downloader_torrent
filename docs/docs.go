@@ -456,6 +456,9 @@ const docTemplate = `{
         "model.LocalFile": {
             "type": "object",
             "properties": {
+                "activeDownloads": {
+                    "type": "integer"
+                },
                 "downloadLinks": {
                     "type": "array",
                     "items": {
@@ -473,6 +476,9 @@ const docTemplate = `{
                 },
                 "streamLink": {
                     "type": "string"
+                },
+                "totalDownloads": {
+                    "type": "integer"
                 }
             }
         },

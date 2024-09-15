@@ -6,6 +6,7 @@ import (
 	"downloader_torrent/configs"
 	_ "downloader_torrent/docs"
 	"downloader_torrent/internal/handler"
+	services "downloader_torrent/internal/service"
 	"downloader_torrent/pkg/response"
 	"errors"
 	"fmt"
@@ -76,15 +77,27 @@ func InitRouter(torrentHandler *handler.TorrentHandler, streamHandler *handler.S
 	}))
 
 	router.Static("/direct_download", "downloads", fiber.Static{
-		Compress:       false,
-		ByteRange:      true,
-		Browse:         true,
-		Download:       false,
-		Index:          "",
-		CacheDuration:  0,
-		MaxAge:         3600,
-		ModifyResponse: nil,
-		Next:           nil,
+		Compress:      false,
+		ByteRange:     true,
+		Browse:        true,
+		Download:      false,
+		Index:         "",
+		CacheDuration: 0,
+		MaxAge:        3600,
+		ModifyResponse: func(c *fiber.Ctx) error {
+			filenames := strings.Split(c.Path(), "/")
+			if services.TorrentSvc != nil {
+				services.TorrentSvc.DecrementFileDownloadCount(filenames[len(filenames)-1])
+			}
+			return nil
+		},
+		Next: func(c *fiber.Ctx) bool {
+			filenames := strings.Split(c.Path(), "/")
+			if services.TorrentSvc != nil {
+				_ = services.TorrentSvc.IncrementFileDownloadCount(filenames[len(filenames)-1])
+			}
+			return false
+		},
 	})
 
 	//router.Use("/downloads", filesystem.New(filesystem.Config{

@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/anacrolix/torrent"
@@ -36,6 +37,8 @@ type ITorrentService interface {
 	RemoveExpiredLocalFiles() error
 	RemoveIncompleteDownloadFiles() error
 	RemoveOrphanTorrentMetaFiles() error
+	IncrementFileDownloadCount(filename string) error
+	DecrementFileDownloadCount(filename string)
 }
 
 type TorrentService struct {
@@ -48,6 +51,8 @@ type TorrentService struct {
 	localFilesMux       *sync.Mutex
 	diskInfo            *model.DiskInfo
 }
+
+var TorrentSvc *TorrentService
 
 func NewTorrentService(torrentRepo repository.ITorrentRepository) *TorrentService {
 	config := torrent.NewDefaultClientConfig()
@@ -75,6 +80,8 @@ func NewTorrentService(torrentRepo repository.ITorrentRepository) *TorrentServic
 	go service.UpdateDownloadingFiles(done)
 	go service.UpdateLocalFiles(done)
 	go service.CleanUp(done)
+
+	TorrentSvc = service
 
 	return service
 }
@@ -332,7 +339,7 @@ func (m *TorrentService) GetLocalFiles() []*model.LocalFile {
 	if err != nil {
 		return make([]*model.LocalFile, 0)
 	}
-	localFiles := []*model.LocalFile{}
+
 A:
 	for _, dir := range dirs {
 		filename := dir.Name()
@@ -375,6 +382,17 @@ A:
 			downloadTime = info.ModTime()
 		}
 
+		for i := range m.localFiles {
+			if m.localFiles[i].Name == filename {
+				// already existed
+				m.localFiles[i].ExpireTime = downloadTime.Add(time.Duration(expireHour) * time.Hour) //just in case expire time changed
+				continue A
+			}
+		}
+
+		td := int64(0)
+		ad := int64(0)
+		// new file
 		f := &model.LocalFile{
 			Name: filename,
 			Size: info.Size(),
@@ -382,13 +400,22 @@ A:
 				configs.GetConfigs().ServerAddress + "/direct_download/" + filename,
 				configs.GetConfigs().ServerAddress + "/partial_download/" + filename,
 			},
-			StreamLink: "/v1/stream/" + filename,
-			ExpireTime: downloadTime.Add(time.Duration(expireHour) * time.Hour),
+			StreamLink:      "/v1/stream/" + filename,
+			ExpireTime:      downloadTime.Add(time.Duration(expireHour) * time.Hour),
+			TotalDownloads:  &td,
+			ActiveDownloads: &ad,
 		}
-		localFiles = append(localFiles, f)
+		m.localFiles = append(m.localFiles, f)
 	}
 
-	m.localFiles = localFiles
+	m.localFiles = slices.DeleteFunc(m.localFiles, func(lf *model.LocalFile) bool {
+		for i := range dirs {
+			if lf.Name == dirs[i].Name() {
+				return false
+			}
+		}
+		return true
+	})
 
 	return m.localFiles
 }
@@ -581,14 +608,38 @@ func (m *TorrentService) RemoveExpiredLocalFiles() error {
 	defer m.localFilesMux.Unlock()
 
 	for _, lf := range m.localFiles {
-		//todo : check file is being downloading by users
-		if time.Now().After(lf.ExpireTime) {
+		if time.Now().After(lf.ExpireTime) && *lf.ActiveDownloads == 0 {
 			// file is expired
 			_ = m.removeTorrentFile(lf.Name)
 		}
 	}
 
 	return nil
+}
+
+//-----------------------------------------
+//-----------------------------------------
+
+func (m *TorrentService) IncrementFileDownloadCount(filename string) error {
+	for _, lf := range m.localFiles {
+		if lf.Name == filename {
+			td := atomic.AddInt64(lf.TotalDownloads, 1)
+			ad := atomic.AddInt64(lf.ActiveDownloads, 1)
+			lf.TotalDownloads = &td
+			lf.ActiveDownloads = &ad
+			return nil
+		}
+	}
+	return errors.New("file not found")
+}
+
+func (m *TorrentService) DecrementFileDownloadCount(filename string) {
+	for _, lf := range m.localFiles {
+		if lf.Name == filename {
+			ad := atomic.AddInt64(lf.ActiveDownloads, -1)
+			lf.ActiveDownloads = &ad
+		}
+	}
 }
 
 //-----------------------------------------

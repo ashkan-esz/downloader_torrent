@@ -453,6 +453,9 @@
         "model.LocalFile": {
             "type": "object",
             "properties": {
+                "activeDownloads": {
+                    "type": "integer"
+                },
                 "downloadLinks": {
                     "type": "array",
                     "items": {
@@ -470,6 +473,9 @@
                 },
                 "streamLink": {
                     "type": "string"
+                },
+                "totalDownloads": {
+                    "type": "integer"
                 }
             }
         },

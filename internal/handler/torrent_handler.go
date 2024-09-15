@@ -58,6 +58,9 @@ func (m *TorrentHandler) ServeLocalFile(c *fiber.Ctx) error {
 	}
 	defer file.Close()
 
+	_ = m.torrentService.IncrementFileDownloadCount(filename)
+	defer m.torrentService.DecrementFileDownloadCount(filename)
+
 	fileInfo, _ := file.Stat()
 	fileSize := fileInfo.Size()
 
