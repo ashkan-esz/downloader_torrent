@@ -355,6 +355,9 @@ const docTemplate = `{
                 },
                 "downloadSpaceThresholdMb": {
                     "type": "integer"
+                },
+                "torrentFilesExpireHour": {
+                    "type": "integer"
                 }
             }
         },
@@ -398,6 +401,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "downloadLink": {
+                    "type": "string"
+                },
+                "expireTime": {
                     "type": "string"
                 },
                 "name": {

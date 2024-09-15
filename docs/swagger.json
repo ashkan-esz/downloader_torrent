@@ -352,6 +352,9 @@
                 },
                 "downloadSpaceThresholdMb": {
                     "type": "integer"
+                },
+                "torrentFilesExpireHour": {
+                    "type": "integer"
                 }
             }
         },
@@ -395,6 +398,9 @@
             "type": "object",
             "properties": {
                 "downloadLink": {
+                    "type": "string"
+                },
+                "expireTime": {
                     "type": "string"
                 },
                 "name": {

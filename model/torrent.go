@@ -28,10 +28,11 @@ type DownloadingFile struct {
 }
 
 type LocalFile struct {
-	Name         string `json:"name"`
-	Size         int64  `json:"size"`
-	DownloadLink string `json:"downloadLink"`
-	StreamLink   string `json:"streamLink"`
+	Name         string    `json:"name"`
+	Size         int64     `json:"size"`
+	DownloadLink string    `json:"downloadLink"`
+	StreamLink   string    `json:"streamLink"`
+	ExpireTime   time.Time `json:"expireTime"`
 }
 
 type StreamStatusRes struct {
@@ -58,4 +59,5 @@ type DiskInfoConfigs struct {
 	DownloadSpaceThresholdMb int64 `json:"downloadSpaceThresholdMb"`
 	DownloadSpaceLimitMb     int64 `json:"downloadSpaceLimitMb"`
 	DownloadFileSizeLimitMb  int64 `json:"downloadFileSizeLimitMb"`
+	TorrentFilesExpireHour   int64 `json:"torrentFilesExpireHour"`
 }

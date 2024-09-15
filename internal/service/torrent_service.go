@@ -32,6 +32,7 @@ type ITorrentService interface {
 	GetDiskSpaceUsage() (int64, error)
 	DownloadTorrentMetaFile(url string, location string) (string, error)
 	RemoveTorrentMetaFile(metaFileName string) error
+	RemoveExpiredLocalFiles() error
 	RemoveIncompleteDownloadFiles() error
 	RemoveOrphanTorrentMetaFiles() error
 }
@@ -63,14 +64,16 @@ func NewTorrentService(torrentRepo repository.ITorrentRepository) *TorrentServic
 		downloadingFilesMux: &sync.Mutex{},
 		localFiles:          make([]*model.LocalFile, 0),
 		localFilesMux:       &sync.Mutex{},
-		diskInfo:            &model.DiskInfo{},
+		diskInfo: &model.DiskInfo{
+			Configs: &model.DiskInfoConfigs{},
+		},
 	}
 
 	done := make(chan bool)
+	go service.UpdateDiskInfo(done)
 	go service.UpdateDownloadingFiles(done)
 	go service.UpdateLocalFiles(done)
 	go service.CleanUp(done)
-	go service.UpdateDiskInfo(done)
 
 	return service
 }
@@ -302,6 +305,7 @@ func (m *TorrentService) CleanUp(done <-chan bool) {
 		case <-ticker.C:
 			_ = m.RemoveIncompleteDownloadFiles()
 			_ = m.RemoveOrphanTorrentMetaFiles()
+			_ = m.RemoveExpiredLocalFiles()
 		}
 	}
 }
@@ -323,15 +327,15 @@ func (m *TorrentService) GetLocalFiles() []*model.LocalFile {
 	m.localFilesMux.Lock()
 	defer m.localFilesMux.Unlock()
 
-	dir, err := os.ReadDir(m.downloadDir)
+	dirs, err := os.ReadDir(m.downloadDir)
 	if err != nil {
 		return make([]*model.LocalFile, 0)
 	}
 	localFiles := []*model.LocalFile{}
 A:
-	for i := range dir {
-		filename := dir[i].Name()
-		if strings.Contains(filename, ".torrent.") || strings.HasSuffix(filename, ".torrent") || dir[i].IsDir() {
+	for _, dir := range dirs {
+		filename := dir.Name()
+		if strings.Contains(filename, ".torrent.") || strings.HasSuffix(filename, ".torrent") || dir.IsDir() {
 			continue
 		}
 		for i2 := range m.downloadingFiles {
@@ -341,22 +345,28 @@ A:
 			}
 		}
 
-		for i2 := range dir {
-			if strings.Contains(dir[i2].Name(), fmt.Sprintf("-%v.torrent", filename)) {
+		for i2 := range dirs {
+			if strings.Contains(dirs[i2].Name(), fmt.Sprintf("-%v.torrent", filename)) {
 				// incomplete download
 				continue A
 			}
 		}
 
-		info, err := dir[i].Info()
+		info, err := dir.Info()
 		if err != nil {
 			continue
+		}
+
+		expireHour := m.diskInfo.Configs.TorrentFilesExpireHour
+		if expireHour == 0 {
+			expireHour = 48
 		}
 		f := &model.LocalFile{
 			Name:         filename,
 			Size:         info.Size(),
 			DownloadLink: "/downloads/" + filename,
 			StreamLink:   "/v1/stream/" + filename,
+			ExpireTime:   info.ModTime().Add(time.Duration(expireHour) * time.Hour),
 		}
 		localFiles = append(localFiles, f)
 	}
@@ -387,6 +397,7 @@ func (m *TorrentService) UpdateDiskInfo(done <-chan bool) {
 					DownloadSpaceLimitMb:     dbConfigs.TorrentDownloadMaxSpaceSize,
 					DownloadFileSizeLimitMb:  dbConfigs.TorrentDownloadMaxFileSize,
 					DownloadSpaceThresholdMb: dbConfigs.TorrentDownloadSpaceThresholdSize,
+					TorrentFilesExpireHour:   dbConfigs.TorrentFilesExpireHour,
 				},
 				TotalFilesSizeMb: totalFilesSize / (1024 * 1024), //mb
 			}
@@ -546,6 +557,20 @@ A:
 	}
 
 	return err
+}
+
+func (m *TorrentService) RemoveExpiredLocalFiles() error {
+	m.localFilesMux.Lock()
+	defer m.localFilesMux.Unlock()
+
+	for _, lf := range m.localFiles {
+		if time.Now().After(lf.ExpireTime) {
+			// file is expired
+			_ = m.removeTorrentFile(lf.Name)
+		}
+	}
+
+	return nil
 }
 
 //-----------------------------------------
