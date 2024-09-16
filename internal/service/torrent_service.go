@@ -185,7 +185,11 @@ func (m *TorrentService) DownloadFile(movieId string, torrentUrl string) (d *mod
 			downloadDone <- true
 			if d != nil {
 				d.Error = err
-				_ = m.removeTorrentFile(d.Name)
+
+				if !errors.Is(err, model.ErrFileAlreadyExist) {
+					_ = m.removeTorrentFile(d.Name)
+				}
+
 				if d.MetaFileName != "" {
 					_ = m.RemoveTorrentMetaFile(d.MetaFileName)
 				}
@@ -215,6 +219,14 @@ func (m *TorrentService) DownloadFile(movieId string, torrentUrl string) (d *mod
 	d.Name = t.Info().Name
 	d.Size = t.Info().Length
 	d.Torrent = t
+
+	//---------------------------------------------
+
+	for _, lf := range m.localFiles {
+		if lf.Name == d.Name {
+			return d, model.ErrFileAlreadyExist
+		}
+	}
 
 	//---------------------------------------------
 	if d.Size == 0 {

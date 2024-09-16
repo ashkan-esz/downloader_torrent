@@ -1,6 +1,7 @@
 package model
 
 import (
+	"errors"
 	"time"
 
 	"github.com/anacrolix/torrent"
@@ -66,3 +67,5 @@ type DiskInfoConfigs struct {
 	TorrentFilesExpireHour              int64 `json:"torrentFilesExpireHour"`
 	TorrentFilesServingConcurrencyLimit int64 `json:"torrentFilesServingConcurrencyLimit"`
 }
+
+var ErrFileAlreadyExist = errors.New("file already exist")
