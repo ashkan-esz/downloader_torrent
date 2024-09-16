@@ -418,11 +418,17 @@ const docTemplate = `{
                 "torrentDownloadConcurrencyLimit": {
                     "type": "integer"
                 },
+                "torrentDownloadDisabled": {
+                    "type": "boolean"
+                },
                 "torrentFilesExpireHour": {
                     "type": "integer"
                 },
                 "torrentFilesServingConcurrencyLimit": {
                     "type": "integer"
+                },
+                "torrentFilesServingDisabled": {
+                    "type": "boolean"
                 }
             }
         },

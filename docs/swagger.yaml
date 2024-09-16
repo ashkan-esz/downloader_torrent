@@ -38,10 +38,14 @@ definitions:
         type: integer
       torrentDownloadConcurrencyLimit:
         type: integer
+      torrentDownloadDisabled:
+        type: boolean
       torrentFilesExpireHour:
         type: integer
       torrentFilesServingConcurrencyLimit:
         type: integer
+      torrentFilesServingDisabled:
+        type: boolean
     type: object
   model.DownloadingFile:
     properties:

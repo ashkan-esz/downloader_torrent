@@ -13,7 +13,6 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/j-muller/go-torrent-parser v0.0.0-20211014072822-db02b4099054
 	github.com/joho/godotenv v1.5.1
-	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/redis/go-redis/v9 v9.6.1
 	github.com/swaggo/swag v1.16.3
 	github.com/u2takey/ffmpeg-go v0.5.0

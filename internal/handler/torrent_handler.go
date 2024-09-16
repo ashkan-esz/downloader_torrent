@@ -2,6 +2,7 @@ package handler
 
 import (
 	"downloader_torrent/internal/service"
+	"downloader_torrent/model"
 	"downloader_torrent/pkg/response"
 	"errors"
 	"fmt"
@@ -52,6 +53,10 @@ func (m *TorrentHandler) ServeLocalFile(c *fiber.Ctx) error {
 	}
 
 	//return c.SendFile("./downloads/" + filename)
+
+	if !m.torrentService.CheckServingLocalFile(filename) {
+		return response.ResponseError(c, model.ErrTorrentFilesServingDisabled.Error(), fiber.StatusServiceUnavailable)
+	}
 
 	if !m.torrentService.CheckConcurrentServingLimit() {
 		return response.ResponseError(c, "Server is busy", fiber.StatusServiceUnavailable)

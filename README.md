@@ -13,23 +13,26 @@ To Download from torrent and serve local files and online streaming
 
 To run this project, you will need to add the following environment variables to your .env file
 
-| Prop                            | Description                                                                              | Required | Default Value |
-|---------------------------------|------------------------------------------------------------------------------------------|----------|---------------|
-| **`PORT`**                      | server port                                                                              | `false`  | 3000          |
-| **`MONGODB_DATABASE_NAME`**     |                                                                                          | `true`   |               |
-| **`MONGODB_DATABASE_URL`**      |                                                                                          | `true`   |               |
-| **`REDIS_URL`**                 |                                                                                          | `true`   |               |
-| **`REDIS_PASSWORD`**            |                                                                                          | `true`   |               |
-| **`SENTRY_DNS`**                | see [sentry.io](https://sentry.io)                                                       | `false`  |               |
-| **`SENTRY_RELEASE`**            | see [sentry release](https://docs.sentry.io/product/releases/.)                          | `false`  |               |
-| **`ACCESS_TOKEN_SECRET`**       |                                                                                          | `true`   |               |
-| **`REFRESH_TOKEN_SECRET`**      |                                                                                          | `true`   |               |
-| **`WAIT_REDIS_CONNECTION_SEC`** |                                                                                          | `true`   |               |
-| **`CORS_ALLOWED_ORIGINS`**      | address joined by `---` example: https://download-admin.com---https:download-website.com | `false`  |               |
-| **`MAIN_SERVER_ADDRESS`**       | the url of the downloader_api (main server)                                              | `true`   |               |
-| **`PRINT_ERRORS`**              |                                                                                          | `false`  | false         |
-| **`DONT_CONVERT_MKV`**          | dont convert mkv to mp4 on stream request                                                | `false`  | false         |
-| **`MAX_DOWNLOAD_SPACE_GB`**     | maximum amount of space can be stored locally                                            | `true`   |               |
+| Prop                                   | Description                                                                              | Required | Default Value |
+|----------------------------------------|------------------------------------------------------------------------------------------|----------|---------------|
+| **`PORT`**                             | server port                                                                              | `false`  | 3000          |
+| **`POSTGRES_DATABASE_URL`**            |                                                                                          | `true`   |               |
+| **`MONGODB_DATABASE_NAME`**            |                                                                                          | `true`   |               |
+| **`MONGODB_DATABASE_URL`**             |                                                                                          | `true`   |               |
+| **`REDIS_URL`**                        |                                                                                          | `true`   |               |
+| **`REDIS_PASSWORD`**                   |                                                                                          | `true`   |               |
+| **`SENTRY_DNS`**                       | see [sentry.io](https://sentry.io)                                                       | `false`  |               |
+| **`SENTRY_RELEASE`**                   | see [sentry release](https://docs.sentry.io/product/releases/.)                          | `false`  |               |
+| **`ACCESS_TOKEN_SECRET`**              |                                                                                          | `true`   |               |
+| **`REFRESH_TOKEN_SECRET`**             |                                                                                          | `true`   |               |
+| **`WAIT_REDIS_CONNECTION_SEC`**        |                                                                                          | `true`   |               |
+| **`CORS_ALLOWED_ORIGINS`**             | address joined by `---` example: https://download-admin.com---https:download-website.com | `false`  |               |
+| **`MAIN_SERVER_ADDRESS`**              | the url of the downloader_api (main server)                                              | `true`   |               |
+| **`PRINT_ERRORS`**                     |                                                                                          | `false`  | false         |
+| **`DONT_CONVERT_MKV`**                 | dont convert mkv to mp4 on stream request                                                | `false`  | false         |
+| **`SERVER_ADDRESS`**                   | the url of the server                                                                    | `true`   |               |
+| **`MAIN_SERVER_ADDRESS`**              | the url of the downloader_api (main server)                                              | `true`   |               |
+| **`DOMAIN`**                           | base domain, used for cookies domain and subdomain                                       | `true`   |               |
 
 >**NOTE: check [configs schema](https://github.com/ashkan-esz/downloader_api/blob/master/readme/CONFIGS.README.md) for other configs that read from db.**
 

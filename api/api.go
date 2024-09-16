@@ -93,8 +93,12 @@ func InitRouter(torrentHandler *handler.TorrentHandler, streamHandler *handler.S
 		},
 		Next: func(c *fiber.Ctx) bool {
 			filenames := strings.Split(c.Path(), "/")
+			filename := filenames[len(filenames)-1]
+			if !services.TorrentSvc.CheckServingLocalFile(filename) {
+				return true
+			}
 			if services.TorrentSvc != nil {
-				_ = services.TorrentSvc.IncrementFileDownloadCount(filenames[len(filenames)-1])
+				_ = services.TorrentSvc.IncrementFileDownloadCount(filename)
 			}
 			return false
 		},

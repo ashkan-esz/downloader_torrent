@@ -41,6 +41,7 @@ type ITorrentService interface {
 	RemoveIncompleteDownloadFiles() error
 	RemoveOrphanTorrentMetaFiles() error
 	CheckConcurrentServingLimit() bool
+	CheckServingLocalFile(filename string) bool
 	IncrementFileDownloadCount(filename string) error
 	DecrementFileDownloadCount(filename string)
 	IsTorrentFile(filename string, size int64) (bool, error)
@@ -80,6 +81,7 @@ func NewTorrentService(torrentRepo repository.ITorrentRepository) *TorrentServic
 		diskInfo: &model.DiskInfo{
 			Configs: &model.DiskInfoConfigs{
 				DownloadFileSizeLimitMb: 512,
+				TorrentDownloadDisabled: true,
 			},
 			RemainingSpaceMb:          1024,
 			TorrentDownloadTimeoutMin: 30,
@@ -119,6 +121,10 @@ func (m *TorrentService) GetTorrentStatus() *model.TorrentStatusRes {
 //------------------------------------------
 
 func (m *TorrentService) DownloadFile(movieId string, torrentUrl string) (d *model.DownloadingFile, err error) {
+	if m.diskInfo.Configs.TorrentDownloadDisabled {
+		return nil, model.ErrTorrentDownloadDisabled
+	}
+
 	if m.diskInfo.RemainingSpaceMb < m.diskInfo.Configs.DownloadSpaceThresholdMb && m.diskInfo.Configs.DownloadSpaceThresholdMb > 0 {
 		return nil, errors.New("maximum disk usage exceeded")
 	}
@@ -510,6 +516,8 @@ func (m *TorrentService) UpdateDiskInfo(done <-chan bool) {
 					TorrentFilesExpireHour:              dbConfigs.TorrentFilesExpireHour,
 					TorrentFilesServingConcurrencyLimit: dbConfigs.TorrentFilesServingConcurrencyLimit,
 					TorrentDownloadConcurrencyLimit:     dbConfigs.TorrentDownloadConcurrencyLimit,
+					TorrentFilesServingDisabled:         dbConfigs.TorrentFilesServingDisabled,
+					TorrentDownloadDisabled:             dbConfigs.TorrentDownloadDisabled,
 				},
 				TotalFilesSizeMb:          totalFilesSize / (1024 * 1024), //mb
 				TorrentDownloadTimeoutMin: dbConfigs.TorrentDownloadTimeoutMin,
@@ -751,6 +759,13 @@ func (m *TorrentService) DecrementFileDownloadCount(filename string) {
 			lf.ActiveDownloads = &ad
 		}
 	}
+}
+
+//-----------------------------------------
+//-----------------------------------------
+
+func (m *TorrentService) CheckServingLocalFile(filename string) bool {
+	return !m.diskInfo.Configs.TorrentFilesServingDisabled
 }
 
 //-----------------------------------------

@@ -20,4 +20,4 @@ push-image:
 	docker tag downloader_torrent ashkanaz2828/downloader_torrent
 	docker push ashkanaz2828/downloader_torrent
 
-.PHONY: db_dev create_db_dev drop_db_dev migrate_up_db_dev migrate_down_db_dev update_swagger build_rabbitmq run_rabbitmq run_redis run_dev up build run push-image
+.PHONY: db_dev create_db_dev drop_db_dev migrate_up_db_dev migrate_down_db_dev update_swagger run_redis run_dev up build run push-image

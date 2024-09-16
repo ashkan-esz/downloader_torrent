@@ -36,6 +36,8 @@ type DbConfigData struct {
 	TorrentDownloadConcurrencyLimit     int64              `bson:"torrentDownloadConcurrencyLimit"`
 	TorrentFilesServingConcurrencyLimit int64              `bson:"torrentFilesServingConcurrencyLimit"`
 	TorrentDownloadTimeoutMin           int64              `bson:"torrentDownloadTimeoutMin"`
+	TorrentFilesServingDisabled         bool               `bson:"torrentFilesServingDisabled"`
+	TorrentDownloadDisabled             bool               `bson:"torrentDownloadDisabled"`
 }
 
 var rwm sync.RWMutex
