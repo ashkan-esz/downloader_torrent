@@ -19,6 +19,7 @@ import (
 
 	"github.com/anacrolix/torrent"
 	"github.com/djherbis/times"
+	torretParser "github.com/j-muller/go-torrent-parser"
 )
 
 type ITorrentService interface {
@@ -41,6 +42,7 @@ type ITorrentService interface {
 	CheckConcurrentServingLimit() bool
 	IncrementFileDownloadCount(filename string) error
 	DecrementFileDownloadCount(filename string)
+	IsTorrentFile(filename string, size int64) (bool, error)
 }
 
 type TorrentService struct {
@@ -107,6 +109,7 @@ func (m *TorrentService) GetTorrentStatus() *model.TorrentStatusRes {
 		LocalFiles:            m.localFiles,
 		DiskInfo:              m.diskInfo,
 		ActiveDownloadsCounts: m.activeDownloadsCounts,
+		TorrentClientStats:    m.torrentClient.Stats(),
 	}
 }
 
@@ -391,7 +394,7 @@ A:
 		}
 
 		var downloadTime time.Time
-		t, err := times.Stat(m.downloadDir + "/" + filename)
+		t, err := times.Stat(m.downloadDir + filename)
 		if err == nil {
 			downloadTime = t.BirthTime()
 			if downloadTime.Before(t.AccessTime()) {
@@ -576,10 +579,19 @@ func (m *TorrentService) RemoveOrphanTorrentMetaFiles() error {
 
 A:
 	for _, dir := range dirs {
+		if dir.IsDir() {
+			continue
+		}
+
 		filename := dir.Name()
-		if torrentFileRegex.MatchString(filename) {
-			fileInfo, err := dir.Info()
-			if err == nil {
+		if strings.Contains(filename, ".torrent.db") {
+			continue
+		}
+
+		fileInfo, err := dir.Info()
+		if err == nil {
+			isTorrent, _ := m.IsTorrentFile(filename, fileInfo.Size())
+			if isTorrent {
 				elapsedMin := time.Now().Sub(fileInfo.ModTime()).Minutes()
 				if elapsedMin > 5 {
 					for _, df := range m.downloadingFiles {
@@ -605,20 +617,32 @@ func (m *TorrentService) RemoveIncompleteDownloadFiles() error {
 
 A:
 	for _, dir := range dirs {
+		if dir.IsDir() {
+			continue
+		}
+
 		filename := dir.Name()
-		if !torrentMetaFileRegex.MatchString(filename) {
-			for _, df := range m.downloadingFiles {
-				// check its downloading
-				if df.Name == filename {
-					continue A
+		if strings.Contains(filename, ".torrent.db") {
+			continue
+		}
+
+		fileInfo, err := dir.Info()
+		if err == nil {
+			isTorrent, _ := m.IsTorrentFile(filename, fileInfo.Size())
+			if !isTorrent {
+				for _, df := range m.downloadingFiles {
+					// check its downloading
+					if df.Name == filename {
+						continue A
+					}
 				}
-			}
-			for _, dir2 := range dirs {
-				if strings.Contains(dir2.Name(), fmt.Sprintf("-%v.torrent", filename)) {
-					// incomplete download
-					err = m.removeTorrentFile(filename)
-					if err == nil {
-						err = m.RemoveTorrentMetaFile(dir2.Name())
+				for _, dir2 := range dirs {
+					if strings.Contains(dir2.Name(), fmt.Sprintf("-%v.torrent", filename)) {
+						// torrent-meta-file exist --> incomplete download
+						err = m.removeTorrentFile(filename)
+						if err == nil {
+							err = m.RemoveTorrentMetaFile(dir2.Name())
+						}
 					}
 				}
 			}
@@ -686,6 +710,37 @@ func (m *TorrentService) DecrementFileDownloadCount(filename string) {
 
 //-----------------------------------------
 //-----------------------------------------
+
+func (m *TorrentService) IsTorrentFile(filename string, size int64) (bool, error) {
+	if torrentMetaFileRegex.MatchString(filename) {
+		return true, nil
+	}
+
+	// > 512kb
+	if size > 512*1024 {
+		return false, nil
+	}
+
+	// Open the file
+	//file, err := os.Open(m.downloadDir + filename)
+	//if err != nil {
+	//	return false, err
+	//}
+	//defer file.Close()
+
+	//metaInfo, err := torretParser.ParseFromFile(m.downloadDir + filename)
+	_, err := torretParser.ParseFromFile(m.downloadDir + filename)
+	if err != nil {
+		return false, err
+	}
+
+	// Check for required keys
+	//if metaInfo.Announce == "" || len(metaInfo.Files) == 0 {
+	//	return false, nil // Missing required keys
+	//}
+
+	return true, nil
+}
 
 func maxInt64(a, b int64) int64 {
 	if a > b {

@@ -7,10 +7,11 @@ import (
 )
 
 type TorrentStatusRes struct {
-	DownloadingFiles      []*DownloadingFile `json:"downloadingFiles"`
-	LocalFiles            []*LocalFile       `json:"localFiles"`
-	DiskInfo              *DiskInfo          `json:"diskInfo"`
-	ActiveDownloadsCounts int64              `json:"activeDownloadsCounts"`
+	DownloadingFiles      []*DownloadingFile  `json:"downloadingFiles"`
+	LocalFiles            []*LocalFile        `json:"localFiles"`
+	DiskInfo              *DiskInfo           `json:"diskInfo"`
+	ActiveDownloadsCounts int64               `json:"activeDownloadsCounts"`
+	TorrentClientStats    torrent.ClientStats `json:"torrentClientStats" swaggerignore:"true"`
 }
 
 type DownloadingFile struct {
