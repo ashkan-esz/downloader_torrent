@@ -395,6 +395,9 @@ const docTemplate = `{
                 "remainingSpaceMb": {
                     "type": "integer"
                 },
+                "torrentDownloadTimeoutMin": {
+                    "type": "integer"
+                },
                 "totalFilesSizeMb": {
                     "type": "integer"
                 }

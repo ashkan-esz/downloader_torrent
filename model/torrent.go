@@ -58,6 +58,7 @@ type DiskInfo struct {
 	DownloadingFilesFinalSizeMb   int64            `json:"downloadingFilesFinalSizeMb"`
 	DownloadingFilesCurrentSizeMb int64            `json:"downloadingFilesCurrentSizeMb"`
 	RemainingSpaceMb              int64            `json:"remainingSpaceMb"`
+	TorrentDownloadTimeoutMin     int64            `json:"torrentDownloadTimeoutMin"`
 }
 
 type DiskInfoConfigs struct {
@@ -69,3 +70,5 @@ type DiskInfoConfigs struct {
 }
 
 var ErrFileAlreadyExist = errors.New("file already exist")
+var ErrTorrentDownloadTimeout = errors.New("torrent download timeout")
+var ErrTorrentDownloadInactive = errors.New("torrent download inactivity")

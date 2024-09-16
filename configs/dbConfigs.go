@@ -34,6 +34,7 @@ type DbConfigData struct {
 	TorrentDownloadSpaceThresholdSize   int64              `bson:"torrentDownloadSpaceThresholdSize"`
 	TorrentFilesExpireHour              int64              `bson:"torrentFilesExpireHour"`
 	TorrentFilesServingConcurrencyLimit int64              `bson:"torrentFilesServingConcurrencyLimit"`
+	TorrentDownloadTimeoutMin           int64              `bson:"torrentDownloadTimeoutMin"`
 }
 
 var rwm sync.RWMutex

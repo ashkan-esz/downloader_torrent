@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"downloader_torrent/configs"
 	"downloader_torrent/internal/repository"
 	"downloader_torrent/model"
@@ -80,7 +81,8 @@ func NewTorrentService(torrentRepo repository.ITorrentRepository) *TorrentServic
 			Configs: &model.DiskInfoConfigs{
 				DownloadFileSizeLimitMb: 512,
 			},
-			RemainingSpaceMb: 1024,
+			RemainingSpaceMb:          1024,
+			TorrentDownloadTimeoutMin: 30,
 		},
 		activeDownloadsCounts:    0,
 		activeDownloadsCountsMux: &sync.Mutex{},
@@ -151,19 +153,42 @@ func (m *TorrentService) DownloadFile(movieId string, torrentUrl string) (d *mod
 	m.downloadingFilesMux.Unlock()
 
 	downloadDone := make(chan bool)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(m.diskInfo.TorrentDownloadTimeoutMin)*time.Minute)
 
 	go func() {
-		ticker := time.NewTicker(1 * time.Second)
+		defer cancel()
+		ticker := time.NewTicker(2 * time.Second)
 		defer ticker.Stop()
+
+		lastProgress := time.Now()
 
 		for {
 			select {
+			case <-ctx.Done():
+				//fmt.Println("Download timed out due to inactivity.")
+				if d != nil {
+					d.Torrent.Drop()
+					d.Error = model.ErrTorrentDownloadTimeout
+				}
+				return
 			case <-downloadDone:
 				//fmt.Println("Downloading file stopped/completed")
 				return
 			case <-ticker.C:
 				if d != nil && d.Torrent != nil {
-					d.DownloadedSize = d.Torrent.BytesCompleted()
+					downloadedBytes := d.Torrent.BytesCompleted()
+					if downloadedBytes > d.DownloadedSize {
+						lastProgress = time.Now()
+					}
+
+					if time.Since(lastProgress) > 2*time.Minute {
+						//fmt.Println("No progress detected for 2 minute(s). Timing out.")
+						d.Torrent.Drop()
+						d.Error = model.ErrTorrentDownloadInactive
+						return
+					}
+
+					d.DownloadedSize = downloadedBytes
 					if d.Size > 0 && d.Size == d.DownloadedSize {
 						if d.MetaFileName != "" {
 							_ = m.RemoveTorrentMetaFile(d.MetaFileName)
@@ -479,7 +504,8 @@ func (m *TorrentService) UpdateDiskInfo(done <-chan bool) {
 					TorrentFilesExpireHour:              dbConfigs.TorrentFilesExpireHour,
 					TorrentFilesServingConcurrencyLimit: dbConfigs.TorrentFilesServingConcurrencyLimit,
 				},
-				TotalFilesSizeMb: totalFilesSize / (1024 * 1024), //mb
+				TotalFilesSizeMb:          totalFilesSize / (1024 * 1024), //mb
+				TorrentDownloadTimeoutMin: dbConfigs.TorrentDownloadTimeoutMin,
 			}
 
 			localFilesSize := int64(0)

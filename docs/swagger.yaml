@@ -23,6 +23,8 @@ definitions:
         type: integer
       remainingSpaceMb:
         type: integer
+      torrentDownloadTimeoutMin:
+        type: integer
       totalFilesSizeMb:
         type: integer
     type: object

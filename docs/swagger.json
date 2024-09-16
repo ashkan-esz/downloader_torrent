@@ -392,6 +392,9 @@
                 "remainingSpaceMb": {
                     "type": "integer"
                 },
+                "torrentDownloadTimeoutMin": {
+                    "type": "integer"
+                },
                 "totalFilesSizeMb": {
                     "type": "integer"
                 }
