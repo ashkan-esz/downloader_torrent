@@ -36,6 +36,8 @@ definitions:
         type: integer
       downloadSpaceThresholdMb:
         type: integer
+      torrentDownloadConcurrencyLimit:
+        type: integer
       torrentFilesExpireHour:
         type: integer
       torrentFilesServingConcurrencyLimit:

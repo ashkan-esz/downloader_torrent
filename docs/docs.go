@@ -415,6 +415,9 @@ const docTemplate = `{
                 "downloadSpaceThresholdMb": {
                     "type": "integer"
                 },
+                "torrentDownloadConcurrencyLimit": {
+                    "type": "integer"
+                },
                 "torrentFilesExpireHour": {
                     "type": "integer"
                 },

@@ -135,6 +135,12 @@ func (m *TorrentService) DownloadFile(movieId string, torrentUrl string) (d *mod
 			return nil, errors.New("already downloading")
 		}
 	}
+
+	if int64(len(m.downloadingFiles)) >= m.diskInfo.Configs.TorrentDownloadConcurrencyLimit {
+		m.downloadingFilesMux.Unlock()
+		return nil, model.ErrTorrentDownloadConcurrencyLimit
+	}
+
 	d = &model.DownloadingFile{
 		State:          "started",
 		Name:           "",
@@ -503,6 +509,7 @@ func (m *TorrentService) UpdateDiskInfo(done <-chan bool) {
 					DownloadSpaceThresholdMb:            dbConfigs.TorrentDownloadSpaceThresholdSize,
 					TorrentFilesExpireHour:              dbConfigs.TorrentFilesExpireHour,
 					TorrentFilesServingConcurrencyLimit: dbConfigs.TorrentFilesServingConcurrencyLimit,
+					TorrentDownloadConcurrencyLimit:     dbConfigs.TorrentDownloadConcurrencyLimit,
 				},
 				TotalFilesSizeMb:          totalFilesSize / (1024 * 1024), //mb
 				TorrentDownloadTimeoutMin: dbConfigs.TorrentDownloadTimeoutMin,

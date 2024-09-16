@@ -33,6 +33,7 @@ type DbConfigData struct {
 	TorrentDownloadMaxFileSize          int64              `bson:"torrentDownloadMaxFileSize"`
 	TorrentDownloadSpaceThresholdSize   int64              `bson:"torrentDownloadSpaceThresholdSize"`
 	TorrentFilesExpireHour              int64              `bson:"torrentFilesExpireHour"`
+	TorrentDownloadConcurrencyLimit     int64              `bson:"torrentDownloadConcurrencyLimit"`
 	TorrentFilesServingConcurrencyLimit int64              `bson:"torrentFilesServingConcurrencyLimit"`
 	TorrentDownloadTimeoutMin           int64              `bson:"torrentDownloadTimeoutMin"`
 }

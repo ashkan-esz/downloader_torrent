@@ -67,8 +67,10 @@ type DiskInfoConfigs struct {
 	DownloadFileSizeLimitMb             int64 `json:"downloadFileSizeLimitMb"`
 	TorrentFilesExpireHour              int64 `json:"torrentFilesExpireHour"`
 	TorrentFilesServingConcurrencyLimit int64 `json:"torrentFilesServingConcurrencyLimit"`
+	TorrentDownloadConcurrencyLimit     int64 `json:"torrentDownloadConcurrencyLimit"`
 }
 
 var ErrFileAlreadyExist = errors.New("file already exist")
 var ErrTorrentDownloadTimeout = errors.New("torrent download timeout")
 var ErrTorrentDownloadInactive = errors.New("torrent download inactivity")
+var ErrTorrentDownloadConcurrencyLimit = errors.New("torrent download concurrency exceed, try later")
