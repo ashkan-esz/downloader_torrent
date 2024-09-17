@@ -474,11 +474,8 @@ const docTemplate = `{
                 "activeDownloads": {
                     "type": "integer"
                 },
-                "downloadLinks": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
+                "downloadLink": {
+                    "type": "string"
                 },
                 "expireTime": {
                     "type": "string"

@@ -33,7 +33,7 @@ type DownloadingFile struct {
 type LocalFile struct {
 	Name            string    `json:"name"`
 	Size            int64     `json:"size"`
-	DownloadLinks   []string  `json:"downloadLinks"`
+	DownloadLink    string    `json:"downloadLink"`
 	StreamLink      string    `json:"streamLink"`
 	ExpireTime      time.Time `json:"expireTime"`
 	TotalDownloads  *int64    `json:"totalDownloads"`

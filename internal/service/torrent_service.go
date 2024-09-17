@@ -466,12 +466,9 @@ A:
 		ad := int64(0)
 		// new file
 		f := &model.LocalFile{
-			Name: filename,
-			Size: info.Size(),
-			DownloadLinks: []string{
-				configs.GetConfigs().ServerAddress + "/direct_download/" + filename,
-				configs.GetConfigs().ServerAddress + "/partial_download/" + filename,
-			},
+			Name:            filename,
+			Size:            info.Size(),
+			DownloadLink:    configs.GetConfigs().ServerAddress + "/partial_download/" + filename,
 			StreamLink:      "/v1/stream/" + filename,
 			ExpireTime:      downloadTime.Add(time.Duration(expireHour) * time.Hour),
 			TotalDownloads:  &td,
