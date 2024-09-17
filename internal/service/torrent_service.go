@@ -45,6 +45,7 @@ type ITorrentService interface {
 	IncrementFileDownloadCount(filename string) error
 	DecrementFileDownloadCount(filename string)
 	IsTorrentFile(filename string, size int64) (bool, error)
+	GetDownloadLink(filename string) string
 }
 
 type TorrentService struct {
@@ -207,7 +208,7 @@ func (m *TorrentService) DownloadFile(movieId string, torrentUrl string) (d *mod
 						}
 
 						// sample: download.movieTracker.site/downloads/ttt.mkv
-						localUrl := configs.GetConfigs().ServerAddress + "/partial_download/" + d.Name
+						localUrl := m.GetDownloadLink(d.Name)
 						err = m.torrentRepo.SaveTorrentLocalLink(movieId, checkResult.Type, torrentUrl, localUrl)
 
 						return
@@ -468,7 +469,7 @@ A:
 		f := &model.LocalFile{
 			Name:            filename,
 			Size:            info.Size(),
-			DownloadLink:    configs.GetConfigs().ServerAddress + "/partial_download/" + filename,
+			DownloadLink:    m.GetDownloadLink(filename),
 			StreamLink:      "/v1/stream/" + filename,
 			ExpireTime:      downloadTime.Add(time.Duration(expireHour) * time.Hour),
 			TotalDownloads:  &td,
@@ -735,6 +736,10 @@ func (m *TorrentService) IncrementFileDownloadCount(filename string) error {
 
 	for _, lf := range m.localFiles {
 		if lf.Name == filename {
+			go func() {
+				_ = m.torrentRepo.IncrementTorrentLinkDownload("serial", m.GetDownloadLink(filename))
+			}()
+
 			td := atomic.AddInt64(lf.TotalDownloads, 1)
 			ad := atomic.AddInt64(lf.ActiveDownloads, 1)
 			lf.TotalDownloads = &td
@@ -763,6 +768,10 @@ func (m *TorrentService) DecrementFileDownloadCount(filename string) {
 
 func (m *TorrentService) CheckServingLocalFile(filename string) bool {
 	return !m.diskInfo.Configs.TorrentFilesServingDisabled
+}
+
+func (m *TorrentService) GetDownloadLink(filename string) string {
+	return configs.GetConfigs().ServerAddress + "/partial_download/" + filename
 }
 
 //-----------------------------------------

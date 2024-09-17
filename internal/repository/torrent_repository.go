@@ -2,7 +2,9 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"strings"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -14,6 +16,7 @@ type ITorrentRepository interface {
 	CheckTorrentLinkExist(movieId string, torrentUrl string) (*CheckTorrentLinkExistRes, error)
 	SaveTorrentLocalLink(movieId string, movieType string, torrentUrl string, localUrl string) error
 	RemoveTorrentLocalLink(movieType string, localUrl string) error
+	IncrementTorrentLinkDownload(movieType string, localUrl string) error
 }
 
 type TorrentRepository struct {
@@ -41,24 +44,34 @@ func (m *TorrentRepository) CheckTorrentLinkExist(movieId string, torrentUrl str
 		return nil, err
 	}
 
+	filter := bson.M{
+		"_id": id,
+		"$or": []bson.M{
+			{"seasons.episodes.torrentLinks.link": torrentUrl},
+			{"qualities.torrentLinks.link": torrentUrl},
+		},
+	}
+
+	projection := bson.M{
+		"title": 1,
+		"type":  1,
+	}
+
 	var result CheckTorrentLinkExistRes
-	opts := options.FindOne().SetProjection(bson.D{
-		{"title", 1},
-		{"type", 1},
-	})
+	opts := options.FindOne().SetProjection(projection)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	err = m.mongodb.
 		Collection("movies").
-		FindOne(context.TODO(),
-			bson.D{
-				{"_id", id},
-				{"$or", []interface{}{
-					bson.D{{"seasons.episodes.torrentLinks.link", torrentUrl}},
-					bson.D{{"qualities.torrentLinks.link", torrentUrl}},
-				}},
-			}, opts).
+		FindOne(ctx, filter, opts).
 		Decode(&result)
 
 	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return &result, nil
@@ -70,56 +83,111 @@ func (m *TorrentRepository) SaveTorrentLocalLink(movieId string, movieType strin
 		return err
 	}
 
+	isMovie := strings.Contains(movieType, "movie")
 	linkQuery := "seasons.episodes.torrentLinks.link"
-	if strings.Contains(movieType, "movie") {
+	updateField := "seasons.$.episodes.$[].torrentLinks.$[item].localLink"
+	if !isMovie {
 		linkQuery = "qualities.torrentLinks.link"
+		updateField = "qualities.$[].torrentLinks.$[item].localLink"
 	}
-	filter := bson.D{
-		{"_id", id},
-		{linkQuery, torrentUrl},
+
+	filter := bson.M{
+		"_id":     id,
+		linkQuery: torrentUrl,
 	}
-	update := bson.D{
-		{"$set", bson.D{
-			{"seasons.$.episodes.$[].torrentLinks.$[item].localLink", localUrl},
-			{"qualities.$[].torrentLinks.$[item].localLink", localUrl},
-		}},
+
+	update := bson.M{
+		"$set": bson.M{
+			updateField: localUrl,
+		},
 	}
+
 	opts := options.Update().SetArrayFilters(options.ArrayFilters{
 		Filters: []interface{}{
 			bson.M{"item.link": torrentUrl},
 		},
 	})
 
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
 	_, err = m.mongodb.
 		Collection("movies").
-		UpdateOne(context.TODO(), filter, update, opts)
+		UpdateOne(ctx, filter, update, opts)
 
 	return err
 }
 
 func (m *TorrentRepository) RemoveTorrentLocalLink(movieType string, localUrl string) error {
+	isMovie := strings.Contains(movieType, "movie")
 	linkQuery := "seasons.episodes.torrentLinks.localLink"
-	if strings.Contains(movieType, "movie") {
+	updateField := "seasons.$.episodes.$[].torrentLinks.$[item].localLink"
+	if isMovie {
 		linkQuery = "qualities.torrentLinks.localLink"
+		updateField = "qualities.$[].torrentLinks.$[item].localLink"
 	}
-	filter := bson.D{
-		{linkQuery, localUrl},
+
+	filter := bson.M{
+		linkQuery: localUrl,
 	}
-	update := bson.D{
-		{"$set", bson.D{
-			{"seasons.$.episodes.$[].torrentLinks.$[item].localLink", ""},
-			{"qualities.$[].torrentLinks.$[item].localLink", ""},
-		}},
+
+	update := bson.M{
+		"$set": bson.M{
+			updateField: "",
+		},
 	}
+
 	opts := options.Update().SetArrayFilters(options.ArrayFilters{
 		Filters: []interface{}{
 			bson.M{"item.localLink": localUrl},
 		},
 	})
 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	_, err := m.mongodb.
 		Collection("movies").
-		UpdateOne(context.TODO(), filter, update, opts)
+		UpdateOne(ctx, filter, update, opts)
+
+	return err
+}
+
+func (m *TorrentRepository) IncrementTorrentLinkDownload(movieType string, localUrl string) error {
+	isMovie := strings.Contains(movieType, "movie")
+	linkQuery := "seasons.episodes.torrentLinks.localLink"
+	counterQuery := "seasons.$.episodes.$[].torrentLinks.$[item].downloadsCount"
+	if isMovie {
+		linkQuery = "qualities.torrentLinks.localLink"
+		counterQuery = "qualities.$[].torrentLinks.$[item].downloadsCount"
+	}
+
+	filter := bson.M{
+		linkQuery: localUrl,
+	}
+
+	update := bson.M{
+		"$inc": bson.M{
+			counterQuery: 1,
+		},
+	}
+
+	opts := options.Update().SetArrayFilters(options.ArrayFilters{
+		Filters: []interface{}{
+			bson.M{"item.localLink": localUrl},
+		},
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	res, err := m.mongodb.
+		Collection("movies").
+		UpdateOne(ctx, filter, update, opts)
+
+	if err == nil && res != nil && res.MatchedCount == 0 && movieType == "serial" {
+		return m.IncrementTorrentLinkDownload("movie", localUrl)
+	}
 
 	return err
 }
