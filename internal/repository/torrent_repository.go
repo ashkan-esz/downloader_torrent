@@ -14,7 +14,7 @@ import (
 
 type ITorrentRepository interface {
 	CheckTorrentLinkExist(movieId string, torrentUrl string) (*CheckTorrentLinkExistRes, error)
-	SaveTorrentLocalLink(movieId string, movieType string, torrentUrl string, localUrl string) error
+	SaveTorrentLocalLink(movieId string, movieType string, torrentUrl string, localUrl string, expireTime int64) error
 	RemoveTorrentLocalLink(movieType string, localUrl string) error
 	IncrementTorrentLinkDownload(movieType string, localUrl string) error
 }
@@ -77,7 +77,7 @@ func (m *TorrentRepository) CheckTorrentLinkExist(movieId string, torrentUrl str
 	return &result, nil
 }
 
-func (m *TorrentRepository) SaveTorrentLocalLink(movieId string, movieType string, torrentUrl string, localUrl string) error {
+func (m *TorrentRepository) SaveTorrentLocalLink(movieId string, movieType string, torrentUrl string, localUrl string, expireTime int64) error {
 	id, err := primitive.ObjectIDFromHex(movieId)
 	if err != nil {
 		return err
@@ -86,9 +86,11 @@ func (m *TorrentRepository) SaveTorrentLocalLink(movieId string, movieType strin
 	isMovie := strings.Contains(movieType, "movie")
 	linkQuery := "seasons.episodes.torrentLinks.link"
 	updateField := "seasons.$.episodes.$[].torrentLinks.$[item].localLink"
-	if !isMovie {
+	updateField2 := "seasons.$.episodes.$[].torrentLinks.$[item].localLinkExpire"
+	if isMovie {
 		linkQuery = "qualities.torrentLinks.link"
 		updateField = "qualities.$[].torrentLinks.$[item].localLink"
+		updateField2 = "qualities.$[].torrentLinks.$[item].localLinkExpire"
 	}
 
 	filter := bson.M{
@@ -98,7 +100,8 @@ func (m *TorrentRepository) SaveTorrentLocalLink(movieId string, movieType strin
 
 	update := bson.M{
 		"$set": bson.M{
-			updateField: localUrl,
+			updateField:  localUrl,
+			updateField2: expireTime,
 		},
 	}
 
@@ -122,9 +125,11 @@ func (m *TorrentRepository) RemoveTorrentLocalLink(movieType string, localUrl st
 	isMovie := strings.Contains(movieType, "movie")
 	linkQuery := "seasons.episodes.torrentLinks.localLink"
 	updateField := "seasons.$.episodes.$[].torrentLinks.$[item].localLink"
+	updateField2 := "seasons.$.episodes.$[].torrentLinks.$[item].localLinkExpire"
 	if isMovie {
 		linkQuery = "qualities.torrentLinks.localLink"
 		updateField = "qualities.$[].torrentLinks.$[item].localLink"
+		updateField2 = "qualities.$[].torrentLinks.$[item].localLinkExpire"
 	}
 
 	filter := bson.M{
@@ -133,7 +138,8 @@ func (m *TorrentRepository) RemoveTorrentLocalLink(movieType string, localUrl st
 
 	update := bson.M{
 		"$set": bson.M{
-			updateField: "",
+			updateField:  "",
+			updateField2: 0,
 		},
 	}
 

@@ -46,6 +46,7 @@ type ITorrentService interface {
 	DecrementFileDownloadCount(filename string)
 	IsTorrentFile(filename string, size int64) (bool, error)
 	GetDownloadLink(filename string) string
+	GetFileExpireTime(filename string, info os.FileInfo) time.Time
 }
 
 type TorrentService struct {
@@ -209,7 +210,8 @@ func (m *TorrentService) DownloadFile(movieId string, torrentUrl string) (d *mod
 
 						// sample: download.movieTracker.site/downloads/ttt.mkv
 						localUrl := m.GetDownloadLink(d.Name)
-						err = m.torrentRepo.SaveTorrentLocalLink(movieId, checkResult.Type, torrentUrl, localUrl)
+						expireTime := m.GetFileExpireTime(d.Name, nil).UnixMilli()
+						err = m.torrentRepo.SaveTorrentLocalLink(movieId, checkResult.Type, torrentUrl, localUrl, expireTime)
 
 						return
 					}
@@ -438,27 +440,10 @@ A:
 			continue
 		}
 
-		expireHour := m.diskInfo.Configs.TorrentFilesExpireHour
-		if expireHour == 0 {
-			expireHour = 48
-		}
-
-		var downloadTime time.Time
-		t, err := times.Stat(m.downloadDir + filename)
-		if err == nil {
-			downloadTime = t.BirthTime()
-			if downloadTime.Before(t.AccessTime()) {
-				downloadTime = t.AccessTime()
-			}
-		}
-		if downloadTime.IsZero() {
-			downloadTime = info.ModTime()
-		}
-
 		for i := range m.localFiles {
 			if m.localFiles[i].Name == filename {
 				// already existed
-				m.localFiles[i].ExpireTime = downloadTime.Add(time.Duration(expireHour) * time.Hour) //just in case expire time changed
+				m.localFiles[i].ExpireTime = m.GetFileExpireTime(filename, info) //just in case expire time changed
 				continue A
 			}
 		}
@@ -471,7 +456,7 @@ A:
 			Size:            info.Size(),
 			DownloadLink:    m.GetDownloadLink(filename),
 			StreamLink:      "/v1/stream/" + filename,
-			ExpireTime:      downloadTime.Add(time.Duration(expireHour) * time.Hour),
+			ExpireTime:      m.GetFileExpireTime(filename, info),
 			TotalDownloads:  &td,
 			ActiveDownloads: &ad,
 		}
@@ -772,6 +757,41 @@ func (m *TorrentService) CheckServingLocalFile(filename string) bool {
 
 func (m *TorrentService) GetDownloadLink(filename string) string {
 	return configs.GetConfigs().ServerAddress + "/partial_download/" + filename
+}
+
+func (m *TorrentService) GetFileExpireTime(filename string, info os.FileInfo) time.Time {
+	defer func() {
+		if r := recover(); r != nil {
+			// Convert the panic to an error
+			fmt.Printf("recovered from panic: %v\n", r)
+		}
+	}()
+
+	expireHour := m.diskInfo.Configs.TorrentFilesExpireHour
+	if expireHour == 0 {
+		expireHour = 48
+	}
+
+	var downloadTime time.Time
+	t, err := times.Stat(m.downloadDir + filename)
+	if err == nil {
+		downloadTime = t.BirthTime()
+		if downloadTime.Before(t.AccessTime()) {
+			downloadTime = t.AccessTime()
+		}
+	}
+	if downloadTime.IsZero() {
+		if info != nil {
+			downloadTime = info.ModTime()
+		} else {
+			fileInfo, err := os.Stat(m.downloadDir + filename)
+			if err == nil {
+				downloadTime = fileInfo.ModTime()
+			}
+		}
+	}
+
+	return downloadTime.Add(time.Duration(expireHour) * time.Hour)
 }
 
 //-----------------------------------------
