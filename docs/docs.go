@@ -281,6 +281,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/torrent/extend_expire_time/:filename": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "add time to expiration of local files",
+                "tags": [
+                    "Torrent-Download"
+                ],
+                "summary": "Extend Expire Time",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "filename",
+                        "name": "filename",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.ResponseOKWithDataModel"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ResponseErrorModel"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ResponseErrorModel"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.ResponseErrorModel"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/torrent/remove/:filename": {
             "delete": {
                 "security": [
@@ -424,6 +473,9 @@ const docTemplate = `{
                 "torrentFileExpireDelayFactor": {
                     "type": "number"
                 },
+                "torrentFileExpireExtendHour": {
+                    "type": "integer"
+                },
                 "torrentFilesExpireHour": {
                     "type": "integer"
                 },
@@ -549,6 +601,18 @@ const docTemplate = `{
                 "code": {
                     "type": "integer"
                 },
+                "errorMessage": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.ResponseOKWithDataModel": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "data": {},
                 "errorMessage": {
                     "type": "string"
                 }

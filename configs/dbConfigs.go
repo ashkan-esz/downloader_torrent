@@ -39,6 +39,7 @@ type DbConfigData struct {
 	TorrentFilesServingDisabled         bool               `bson:"torrentFilesServingDisabled"`
 	TorrentDownloadDisabled             bool               `bson:"torrentDownloadDisabled"`
 	TorrentFileExpireDelayFactor        float32            `bson:"torrentFileExpireDelayFactor"`
+	TorrentFileExpireExtendHour         int64              `bson:"torrentFileExpireExtendHour"`
 }
 
 var rwm sync.RWMutex

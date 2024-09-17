@@ -120,6 +120,7 @@ func InitRouter(torrentHandler *handler.TorrentHandler, streamHandler *handler.S
 		torrentRoutes.Put("/download/:movieId", middleware.AuthMiddleware, torrentHandler.DownloadTorrent)
 		torrentRoutes.Put("/cancel/:filename", middleware.AuthMiddleware, torrentHandler.CancelDownload)
 		torrentRoutes.Delete("/remove/:filename", middleware.AuthMiddleware, torrentHandler.RemoveDownload)
+		torrentRoutes.Put("/extend_expire_time/:filename", middleware.AuthMiddleware, torrentHandler.ExtendLocalFileExpireTime)
 		torrentRoutes.Get("/status", middleware.AuthMiddleware, torrentHandler.TorrentStatus)
 	}
 

@@ -19,6 +19,7 @@ type ITorrentHandler interface {
 	DownloadTorrent(c *fiber.Ctx) error
 	CancelDownload(c *fiber.Ctx) error
 	RemoveDownload(c *fiber.Ctx) error
+	ExtendLocalFileExpireTime(c *fiber.Ctx) error
 	TorrentStatus(c *fiber.Ctx) error
 }
 
@@ -178,6 +179,33 @@ func (m *TorrentHandler) RemoveDownload(c *fiber.Ctx) error {
 	}
 
 	return response.ResponseOK(c, "")
+}
+
+// ExtendLocalFileExpireTime godoc
+//
+//	@Summary		Extend Expire Time
+//	@Description	add time to expiration of local files
+//	@Tags			Torrent-Download
+//	@Param			filename	path		string	true	"filename"
+//	@Success		200			{object}	response.ResponseOKWithDataModel
+//	@Failure		400,401,404	{object}	response.ResponseErrorModel
+//	@Security		BearerAuth
+//	@Router			/v1/torrent/extend_expire_time/:filename [put]
+func (m *TorrentHandler) ExtendLocalFileExpireTime(c *fiber.Ctx) error {
+	filename := c.Params("filename", "")
+	if filename == "" || filename == ":filename" {
+		return response.ResponseError(c, "Invalid filename", fiber.StatusBadRequest)
+	}
+
+	newTime, err := m.torrentService.ExtendLocalFileExpireTime(filename)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return response.ResponseError(c, "File not found", fiber.StatusNotFound)
+		}
+		return response.ResponseError(c, err.Error(), fiber.StatusInternalServerError)
+	}
+
+	return response.ResponseOKWithData(c, newTime)
 }
 
 // TorrentStatus godoc

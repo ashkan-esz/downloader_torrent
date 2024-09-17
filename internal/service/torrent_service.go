@@ -48,6 +48,7 @@ type ITorrentService interface {
 	GetDownloadLink(filename string) string
 	GetFileExpireTime(filename string, info os.FileInfo) time.Time
 	GetTorrentFileExpireDelay(size int64) time.Duration
+	ExtendLocalFileExpireTime(filename string) (time.Time, error)
 }
 
 type TorrentService struct {
@@ -344,6 +345,56 @@ func (m *TorrentService) RemoveDownload(fileName string) error {
 	return nil
 }
 
+func (m *TorrentService) ExtendLocalFileExpireTime(filename string) (time.Time, error) {
+	if m.diskInfo.Configs.TorrentFileExpireExtendHour == 0 {
+		return time.Time{}, errors.New("extending local files expire time is disabled")
+	}
+
+	m.localFilesMux.Lock()
+	defer m.localFilesMux.Unlock()
+
+	defer func() {
+		if r := recover(); r != nil {
+			// Convert the panic to an error
+			fmt.Printf("recovered from panic: %v\n", r)
+		}
+	}()
+
+	for _, lf := range m.localFiles {
+		if lf.Name == filename {
+
+			var downloadTime time.Time
+			t, err := times.Stat(m.downloadDir + filename)
+			if err == nil {
+				downloadTime = t.BirthTime()
+				if downloadTime.Before(t.AccessTime()) {
+					downloadTime = t.AccessTime()
+				}
+			}
+			if downloadTime.IsZero() {
+				fileInfo, err := os.Stat(m.downloadDir + filename)
+				if err == nil {
+					downloadTime = fileInfo.ModTime()
+				} else {
+					downloadTime = time.Now()
+				}
+			}
+
+			newTime := lf.ExpireTime.Add(time.Duration(m.diskInfo.Configs.TorrentFileExpireExtendHour) * time.Hour)
+			newAccessTime := downloadTime.Add(time.Duration(m.diskInfo.Configs.TorrentFileExpireExtendHour) * time.Hour)
+
+			err = os.Chtimes(m.downloadDir+filename, newAccessTime, newAccessTime)
+			if err != nil {
+				return lf.ExpireTime, err
+			}
+
+			return newTime, nil
+		}
+	}
+
+	return time.Time{}, model.ErrFileNotFound
+}
+
 //-----------------------------------------
 //-----------------------------------------
 
@@ -504,6 +555,7 @@ func (m *TorrentService) UpdateDiskInfo(done <-chan bool) {
 					TorrentFilesServingDisabled:         dbConfigs.TorrentFilesServingDisabled,
 					TorrentDownloadDisabled:             dbConfigs.TorrentDownloadDisabled,
 					TorrentFileExpireDelayFactor:        dbConfigs.TorrentFileExpireDelayFactor,
+					TorrentFileExpireExtendHour:         dbConfigs.TorrentFileExpireExtendHour,
 				},
 				TotalFilesSizeMb:          totalFilesSize / (1024 * 1024), //mb
 				TorrentDownloadTimeoutMin: dbConfigs.TorrentDownloadTimeoutMin,

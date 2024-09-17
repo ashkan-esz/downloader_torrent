@@ -72,8 +72,10 @@ type DiskInfoConfigs struct {
 	TorrentFilesServingDisabled         bool    `json:"torrentFilesServingDisabled"`
 	TorrentDownloadDisabled             bool    `json:"torrentDownloadDisabled"`
 	TorrentFileExpireDelayFactor        float32 `json:"torrentFileExpireDelayFactor"`
+	TorrentFileExpireExtendHour         int64   `json:"torrentFileExpireExtendHour"`
 }
 
+var ErrFileNotFound = errors.New("file not found")
 var ErrFileAlreadyExist = errors.New("file already exist")
 var ErrTorrentDownloadDisabled = errors.New("torrent downloader is disabled")
 var ErrTorrentFilesServingDisabled = errors.New("serving torrent files is disabled")
