@@ -418,6 +418,9 @@
                 "torrentDownloadDisabled": {
                     "type": "boolean"
                 },
+                "torrentFileExpireDelayFactor": {
+                    "type": "number"
+                },
                 "torrentFilesExpireHour": {
                     "type": "integer"
                 },
@@ -475,6 +478,9 @@
                     "type": "string"
                 },
                 "expireTime": {
+                    "type": "string"
+                },
+                "lastDownloadTime": {
                     "type": "string"
                 },
                 "name": {

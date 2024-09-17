@@ -31,13 +31,14 @@ type DownloadingFile struct {
 }
 
 type LocalFile struct {
-	Name            string    `json:"name"`
-	Size            int64     `json:"size"`
-	DownloadLink    string    `json:"downloadLink"`
-	StreamLink      string    `json:"streamLink"`
-	ExpireTime      time.Time `json:"expireTime"`
-	TotalDownloads  *int64    `json:"totalDownloads"`
-	ActiveDownloads *int64    `json:"activeDownloads"`
+	Name             string    `json:"name"`
+	Size             int64     `json:"size"`
+	DownloadLink     string    `json:"downloadLink"`
+	StreamLink       string    `json:"streamLink"`
+	ExpireTime       time.Time `json:"expireTime"`
+	TotalDownloads   *int64    `json:"totalDownloads"`
+	ActiveDownloads  *int64    `json:"activeDownloads"`
+	LastDownloadTime time.Time `json:"lastDownloadTime"`
 }
 
 type StreamStatusRes struct {
@@ -62,14 +63,15 @@ type DiskInfo struct {
 }
 
 type DiskInfoConfigs struct {
-	DownloadSpaceThresholdMb            int64 `json:"downloadSpaceThresholdMb"`
-	DownloadSpaceLimitMb                int64 `json:"downloadSpaceLimitMb"`
-	DownloadFileSizeLimitMb             int64 `json:"downloadFileSizeLimitMb"`
-	TorrentFilesExpireHour              int64 `json:"torrentFilesExpireHour"`
-	TorrentFilesServingConcurrencyLimit int64 `json:"torrentFilesServingConcurrencyLimit"`
-	TorrentDownloadConcurrencyLimit     int64 `json:"torrentDownloadConcurrencyLimit"`
-	TorrentFilesServingDisabled         bool  `json:"torrentFilesServingDisabled"`
-	TorrentDownloadDisabled             bool  `json:"torrentDownloadDisabled"`
+	DownloadSpaceThresholdMb            int64   `json:"downloadSpaceThresholdMb"`
+	DownloadSpaceLimitMb                int64   `json:"downloadSpaceLimitMb"`
+	DownloadFileSizeLimitMb             int64   `json:"downloadFileSizeLimitMb"`
+	TorrentFilesExpireHour              int64   `json:"torrentFilesExpireHour"`
+	TorrentFilesServingConcurrencyLimit int64   `json:"torrentFilesServingConcurrencyLimit"`
+	TorrentDownloadConcurrencyLimit     int64   `json:"torrentDownloadConcurrencyLimit"`
+	TorrentFilesServingDisabled         bool    `json:"torrentFilesServingDisabled"`
+	TorrentDownloadDisabled             bool    `json:"torrentDownloadDisabled"`
+	TorrentFileExpireDelayFactor        float32 `json:"torrentFileExpireDelayFactor"`
 }
 
 var ErrFileAlreadyExist = errors.New("file already exist")

@@ -40,6 +40,8 @@ definitions:
         type: integer
       torrentDownloadDisabled:
         type: boolean
+      torrentFileExpireDelayFactor:
+        type: number
       torrentFilesExpireHour:
         type: integer
       torrentFilesServingConcurrencyLimit:
@@ -78,6 +80,8 @@ definitions:
       downloadLink:
         type: string
       expireTime:
+        type: string
+      lastDownloadTime:
         type: string
       name:
         type: string

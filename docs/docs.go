@@ -421,6 +421,9 @@ const docTemplate = `{
                 "torrentDownloadDisabled": {
                     "type": "boolean"
                 },
+                "torrentFileExpireDelayFactor": {
+                    "type": "number"
+                },
                 "torrentFilesExpireHour": {
                     "type": "integer"
                 },
@@ -478,6 +481,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "expireTime": {
+                    "type": "string"
+                },
+                "lastDownloadTime": {
                     "type": "string"
                 },
                 "name": {

@@ -47,6 +47,7 @@ type ITorrentService interface {
 	IsTorrentFile(filename string, size int64) (bool, error)
 	GetDownloadLink(filename string) string
 	GetFileExpireTime(filename string, info os.FileInfo) time.Time
+	GetTorrentFileExpireDelay(size int64) time.Duration
 }
 
 type TorrentService struct {
@@ -452,13 +453,14 @@ A:
 		ad := int64(0)
 		// new file
 		f := &model.LocalFile{
-			Name:            filename,
-			Size:            info.Size(),
-			DownloadLink:    m.GetDownloadLink(filename),
-			StreamLink:      "/v1/stream/" + filename,
-			ExpireTime:      m.GetFileExpireTime(filename, info),
-			TotalDownloads:  &td,
-			ActiveDownloads: &ad,
+			Name:             filename,
+			Size:             info.Size(),
+			DownloadLink:     m.GetDownloadLink(filename),
+			StreamLink:       "/v1/stream/" + filename,
+			ExpireTime:       m.GetFileExpireTime(filename, info),
+			TotalDownloads:   &td,
+			ActiveDownloads:  &ad,
+			LastDownloadTime: time.Time{},
 		}
 		m.localFiles = append(m.localFiles, f)
 	}
@@ -501,6 +503,7 @@ func (m *TorrentService) UpdateDiskInfo(done <-chan bool) {
 					TorrentDownloadConcurrencyLimit:     dbConfigs.TorrentDownloadConcurrencyLimit,
 					TorrentFilesServingDisabled:         dbConfigs.TorrentFilesServingDisabled,
 					TorrentDownloadDisabled:             dbConfigs.TorrentDownloadDisabled,
+					TorrentFileExpireDelayFactor:        dbConfigs.TorrentFileExpireDelayFactor,
 				},
 				TotalFilesSizeMb:          totalFilesSize / (1024 * 1024), //mb
 				TorrentDownloadTimeoutMin: dbConfigs.TorrentDownloadTimeoutMin,
@@ -693,7 +696,7 @@ func (m *TorrentService) RemoveExpiredLocalFiles() error {
 	defer m.localFilesMux.Unlock()
 
 	for _, lf := range m.localFiles {
-		if time.Now().After(lf.ExpireTime) && *lf.ActiveDownloads == 0 {
+		if time.Now().After(lf.ExpireTime) && *lf.ActiveDownloads == 0 && time.Now().After(lf.LastDownloadTime.Add(m.GetTorrentFileExpireDelay(lf.Size))) {
 			// file is expired
 			_ = m.removeTorrentFile(lf.Name)
 		}
@@ -729,6 +732,7 @@ func (m *TorrentService) IncrementFileDownloadCount(filename string) error {
 			ad := atomic.AddInt64(lf.ActiveDownloads, 1)
 			lf.TotalDownloads = &td
 			lf.ActiveDownloads = &ad
+			lf.LastDownloadTime = time.Now()
 			return nil
 		}
 	}
@@ -792,6 +796,10 @@ func (m *TorrentService) GetFileExpireTime(filename string, info os.FileInfo) ti
 	}
 
 	return downloadTime.Add(time.Duration(expireHour) * time.Hour)
+}
+
+func (m *TorrentService) GetTorrentFileExpireDelay(size int64) time.Duration {
+	return time.Duration(float32(size/(1024*1024))*m.diskInfo.Configs.TorrentFileExpireDelayFactor) * time.Second
 }
 
 //-----------------------------------------
