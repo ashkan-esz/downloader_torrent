@@ -163,6 +163,27 @@ paths:
       summary: Show the status of server.
       tags:
       - System
+  /v1/admin/fetch_configs:
+    get:
+      description: Reload db configs and dynamic configs.
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.ResponseOKModel'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ResponseErrorModel'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ResponseErrorModel'
+      security:
+      - BearerAuth: []
+      summary: Fetch Configs
+      tags:
+      - Admin
   /v1/partial_download/:filename:
     get:
       description: serve files downloaded from torrent

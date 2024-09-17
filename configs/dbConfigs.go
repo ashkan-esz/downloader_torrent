@@ -53,14 +53,18 @@ func GetDbConfigs() DbConfigData {
 
 func LoadDbConfigs(mongodb *mongo.Database) {
 	tick := time.NewTicker(15 * time.Minute)
-	load(mongodb)
-	defer rwm.Unlock()
+	_ = load(mongodb)
+	//defer rwm.Unlock()
 	for range tick.C {
-		load(mongodb)
+		_ = load(mongodb)
 	}
 }
 
-func load(mongodb *mongo.Database) {
+func FetchMongoDbConfigs(mongodb *mongo.Database) error {
+	return load(mongodb)
+}
+
+func load(mongodb *mongo.Database) error {
 	rwm.Lock()
 	defer rwm.Unlock()
 	err := mongodb.
@@ -75,4 +79,5 @@ func load(mongodb *mongo.Database) {
 		sentry.CaptureException(err)
 		//log.Fatalf("could not get dbConfig from mongodb: %s", err)
 	}
+	return err
 }

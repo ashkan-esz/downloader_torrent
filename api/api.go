@@ -27,7 +27,7 @@ import (
 
 var router *fiber.App
 
-func InitRouter(torrentHandler *handler.TorrentHandler, streamHandler *handler.StreamHandler) {
+func InitRouter(torrentHandler *handler.TorrentHandler, streamHandler *handler.StreamHandler, adminHandler *handler.AdminHandler) {
 	var defaultErrorHandler = func(c *fiber.Ctx, err error) error {
 		// Status code defaults to 500
 		code := fiber.StatusInternalServerError
@@ -138,6 +138,11 @@ func InitRouter(torrentHandler *handler.TorrentHandler, streamHandler *handler.S
 			})
 		})
 		streamRoutes.Get("/play/:filename", streamHandler.StreamMedia)
+	}
+
+	adminRoutes := router.Group("v1/admin")
+	{
+		adminRoutes.Get("/fetch_configs", middleware.AuthMiddleware, adminHandler.FetchDbConfigs)
 	}
 
 	router.Get("/", HealthCheck)

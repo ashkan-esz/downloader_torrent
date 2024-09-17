@@ -77,6 +77,10 @@ func main() {
 	streamSvc := service.NewStreamService(torrentRep)
 	streamHandler := handler.NewStreamHandler(streamSvc)
 
-	api.InitRouter(torrentHandler, streamHandler)
+	adminRep := repository.NewAdminRepository(mongoDB.GetDB())
+	adminSvc := service.NewAdminService(adminRep)
+	adminHandler := handler.NewAdminHandler(adminSvc)
+
+	api.InitRouter(torrentHandler, streamHandler, adminHandler)
 	api.Start("0.0.0.0:" + configs.GetConfigs().Port)
 }
