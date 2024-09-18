@@ -21,6 +21,7 @@ import (
 	"github.com/anacrolix/torrent"
 	"github.com/djherbis/times"
 	torretParser "github.com/j-muller/go-torrent-parser"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type ITorrentService interface {
@@ -33,11 +34,14 @@ type ITorrentService interface {
 	UpdateDownloadingFiles(done <-chan bool)
 	UpdateLocalFiles(done <-chan bool)
 	CleanUp(done <-chan bool)
+	SyncFilesAndDb(done <-chan bool)
 	UpdateDiskInfo(done <-chan bool)
 	GetDiskSpaceUsage() (int64, error)
 	DownloadTorrentMetaFile(url string, location string) (string, error)
 	RemoveTorrentMetaFile(metaFileName string) error
 	RemoveExpiredLocalFiles() error
+	RemoveInvalidLocalLinkFromDb() error
+	RemoveLocalFilesNotFoundInDb() error
 	RemoveIncompleteDownloadFiles() error
 	RemoveOrphanTorrentMetaFiles() error
 	CheckConcurrentServingLimit() bool
@@ -99,6 +103,7 @@ func NewTorrentService(torrentRepo repository.ITorrentRepository) *TorrentServic
 	go service.UpdateDownloadingFiles(done)
 	go service.UpdateLocalFiles(done)
 	go service.CleanUp(done)
+	go service.SyncFilesAndDb(done)
 
 	TorrentSvc = service
 
@@ -445,6 +450,26 @@ func (m *TorrentService) CleanUp(done <-chan bool) {
 	}
 }
 
+func (m *TorrentService) SyncFilesAndDb(done <-chan bool) {
+	ticker := time.NewTicker(60 * time.Minute)
+	defer ticker.Stop()
+
+	time.Sleep(30 * time.Second)
+	_ = m.RemoveInvalidLocalLinkFromDb()
+	_ = m.RemoveLocalFilesNotFoundInDb()
+
+	for {
+		select {
+		case <-done:
+			//fmt.Println("Periodic task stopped")
+			return
+		case <-ticker.C:
+			_ = m.RemoveInvalidLocalLinkFromDb()
+			_ = m.RemoveLocalFilesNotFoundInDb()
+		}
+	}
+}
+
 //-----------------------------------------
 //-----------------------------------------
 
@@ -751,6 +776,111 @@ func (m *TorrentService) RemoveExpiredLocalFiles() error {
 		if time.Now().After(lf.ExpireTime) && *lf.ActiveDownloads == 0 && time.Now().After(lf.LastDownloadTime.Add(m.GetTorrentFileExpireDelay(lf.Size))) {
 			// file is expired
 			_ = m.removeTorrentFile(lf.Name)
+		}
+	}
+
+	return nil
+}
+
+func (m *TorrentService) RemoveInvalidLocalLinkFromDb() error {
+	m.localFilesMux.Lock()
+	defer m.localFilesMux.Unlock()
+
+	serialsCursor, err := m.torrentRepo.GetAllSerialTorrentLocalLinks()
+	defer func() {
+		if serialsCursor != nil {
+			_ = serialsCursor.Close(context.TODO())
+		}
+	}()
+
+	if err != nil {
+		errorHandler.SaveError(err.Error(), err)
+		return err
+	}
+
+	_ = m.HandleTorrentLinksRemoveCursor(serialsCursor, "serial")
+
+	//-----------------------------------
+
+	moviesCursor, err := m.torrentRepo.GetAllMovieTorrentLocalLinks()
+	defer func() {
+		if moviesCursor != nil {
+			_ = moviesCursor.Close(context.TODO())
+		}
+	}()
+
+	if err != nil {
+		errorHandler.SaveError(err.Error(), err)
+		return err
+	}
+
+	_ = m.HandleTorrentLinksRemoveCursor(moviesCursor, "movie")
+
+	return nil
+}
+
+func (m *TorrentService) RemoveLocalFilesNotFoundInDb() error {
+	m.localFilesMux.Lock()
+	defer m.localFilesMux.Unlock()
+
+	arr := []string{}
+	for i, lf := range m.localFiles {
+		arr = append(arr, lf.DownloadLink)
+		if len(arr) > 19 || i == len(m.localFiles)-1 {
+			serialLocalLinks, err := m.torrentRepo.FindSerialTorrentLinks(arr)
+			if err != nil {
+				errorHandler.SaveError(err.Error(), err)
+				return err
+			}
+
+			movieLocalLinks, err := m.torrentRepo.FindMovieTorrentLinks(arr)
+			if err != nil {
+				errorHandler.SaveError(err.Error(), err)
+				return err
+			}
+
+			serialLocalLinks = append(serialLocalLinks, movieLocalLinks...)
+
+			for _, l := range arr {
+				if !slices.Contains(serialLocalLinks, l) {
+					temp := strings.Split(l, "/")
+					filename := temp[len(temp)-1]
+					_ = m.removeTorrentFile(filename)
+				}
+			}
+
+			arr = []string{}
+		}
+	}
+
+	return nil
+}
+
+func (m *TorrentService) HandleTorrentLinksRemoveCursor(cursor *mongo.Cursor, movieType string) error {
+	if cursor == nil {
+		return nil
+	}
+
+	var doc map[string]string
+	for cursor.Next(context.TODO()) {
+		err := cursor.Decode(&doc)
+		if err != nil {
+			errorHandler.SaveError(err.Error(), err)
+			continue
+		}
+
+		temp := strings.Split(doc["localLink"], "/")
+		filename := temp[len(temp)-1]
+
+		fileExist := false
+		for _, lf := range m.localFiles {
+			if lf.Name == filename {
+				fileExist = true
+				break
+			}
+		}
+		if !fileExist {
+			_ = m.torrentRepo.RemoveTorrentLocalLink(movieType, doc["localLink"])
 		}
 	}
 

@@ -17,6 +17,10 @@ type ITorrentRepository interface {
 	SaveTorrentLocalLink(movieId string, movieType string, torrentUrl string, localUrl string, expireTime int64) error
 	RemoveTorrentLocalLink(movieType string, localUrl string) error
 	IncrementTorrentLinkDownload(movieType string, localUrl string) error
+	GetAllSerialTorrentLocalLinks() (*mongo.Cursor, error)
+	GetAllMovieTorrentLocalLinks() (*mongo.Cursor, error)
+	FindSerialTorrentLinks(searchList []string) ([]string, error)
+	FindMovieTorrentLinks(searchList []string) ([]string, error)
 }
 
 type TorrentRepository struct {
@@ -197,3 +201,175 @@ func (m *TorrentRepository) IncrementTorrentLinkDownload(movieType string, local
 
 	return err
 }
+
+//------------------------------------------
+//------------------------------------------
+
+func (m *TorrentRepository) GetAllSerialTorrentLocalLinks() (*mongo.Cursor, error) {
+	pipeline := mongo.Pipeline{
+		{
+			{"$unwind",
+				bson.D{
+					{"path", "$seasons"},
+					{"preserveNullAndEmptyArrays", false},
+				},
+			},
+		},
+		{
+			{"$unwind",
+				bson.D{
+					{"path", "$seasons.episodes"},
+					{"preserveNullAndEmptyArrays", false},
+				},
+			},
+		},
+		{
+			{"$unwind",
+				bson.D{
+					{"path", "$seasons.episodes.torrentLinks"},
+					{"preserveNullAndEmptyArrays", false},
+				},
+			},
+		},
+		{{"$match", bson.D{{"seasons.episodes.torrentLinks.localLink", bson.D{{"$ne", ""}}}}}},
+		{{"$project", bson.D{{"localLink", "$seasons.episodes.torrentLinks.localLink"}}}},
+	}
+
+	// Execute the aggregation
+	cursor, err := m.mongodb.
+		Collection("movies").
+		Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	return cursor, nil
+}
+
+func (m *TorrentRepository) GetAllMovieTorrentLocalLinks() (*mongo.Cursor, error) {
+	pipeline := mongo.Pipeline{
+		{
+			{"$unwind",
+				bson.D{
+					{"path", "$qualities"},
+					{"preserveNullAndEmptyArrays", false},
+				},
+			},
+		},
+		{
+			{"$unwind",
+				bson.D{
+					{"path", "$qualities.torrentLinks"},
+					{"preserveNullAndEmptyArrays", false},
+				},
+			},
+		},
+		{{"$match", bson.D{{"qualities.torrentLinks.localLink", bson.D{{"$ne", ""}}}}}},
+		{{"$project", bson.D{{"localLink", "$qualities.torrentLinks.localLink"}}}},
+	}
+
+	// Execute the aggregation
+	cursor, err := m.mongodb.
+		Collection("movies").
+		Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	return cursor, nil
+}
+
+func (m *TorrentRepository) FindSerialTorrentLinks(searchList []string) ([]string, error) {
+	pipeline := mongo.Pipeline{
+		{
+			{"$unwind",
+				bson.D{
+					{"path", "$seasons"},
+					{"preserveNullAndEmptyArrays", false},
+				},
+			},
+		},
+		{
+			{"$unwind",
+				bson.D{
+					{"path", "$seasons.episodes"},
+					{"preserveNullAndEmptyArrays", false},
+				},
+			},
+		},
+		{
+			{"$unwind",
+				bson.D{
+					{"path", "$seasons.episodes.torrentLinks"},
+					{"preserveNullAndEmptyArrays", false},
+				},
+			},
+		},
+		{{"$match", bson.D{{"seasons.episodes.torrentLinks.localLink", bson.D{{"$in", searchList}}}}}},
+		{{"$project", bson.D{{"localLink", "$seasons.episodes.torrentLinks.localLink"}}}},
+	}
+
+	cursor, err := m.mongodb.Collection("movies").Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	var localLinks []string
+
+	var r []map[string]string
+	err = cursor.All(context.TODO(), &r)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, el := range r {
+		localLinks = append(localLinks, el["localLink"])
+	}
+
+	return localLinks, nil
+}
+
+func (m *TorrentRepository) FindMovieTorrentLinks(searchList []string) ([]string, error) {
+	pipeline := mongo.Pipeline{
+		{
+			{"$unwind",
+				bson.D{
+					{"path", "$qualities"},
+					{"preserveNullAndEmptyArrays", false},
+				},
+			},
+		},
+		{
+			{"$unwind",
+				bson.D{
+					{"path", "$qualities.torrentLinks"},
+					{"preserveNullAndEmptyArrays", false},
+				},
+			},
+		},
+		{{"$match", bson.D{{"qualities.torrentLinks.localLink", bson.D{{"$in", searchList}}}}}},
+		{{"$project", bson.D{{"localLink", "$qualities.torrentLinks.localLink"}}}},
+	}
+
+	cursor, err := m.mongodb.Collection("movies").Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	var localLinks []string
+
+	var r []map[string]string
+	err = cursor.All(context.TODO(), &r)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, el := range r {
+		localLinks = append(localLinks, el["localLink"])
+	}
+
+	return localLinks, nil
+}
+
+//------------------------------------------
+//------------------------------------------
