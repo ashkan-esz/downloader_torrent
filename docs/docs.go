@@ -597,6 +597,29 @@ const docTemplate = `{
                 }
             }
         },
+        "model.Tasks": {
+            "type": "object",
+            "properties": {
+                "dbsInvalidLocalLinksRemover": {
+                    "type": "string"
+                },
+                "diskSpaceCleaner": {
+                    "type": "string"
+                },
+                "expiredFilesRemover": {
+                    "type": "string"
+                },
+                "inCompleteDownloadsRemover": {
+                    "type": "string"
+                },
+                "invalidLocalFilesRemover": {
+                    "type": "string"
+                },
+                "orphanMetaFilesRemover": {
+                    "type": "string"
+                }
+            }
+        },
         "model.TorrentStatusRes": {
             "type": "object",
             "properties": {
@@ -617,6 +640,9 @@ const docTemplate = `{
                 },
                 "stats": {
                     "$ref": "#/definitions/model.Stats"
+                },
+                "tasks": {
+                    "$ref": "#/definitions/model.Tasks"
                 }
             }
         },

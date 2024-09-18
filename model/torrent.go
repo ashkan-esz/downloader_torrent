@@ -11,6 +11,7 @@ type TorrentStatusRes struct {
 	DownloadingFiles      []*DownloadingFile  `json:"downloadingFiles"`
 	LocalFiles            []*LocalFile        `json:"localFiles"`
 	Stats                 *Stats              `json:"stats"`
+	Tasks                 *Tasks              `json:"tasks"`
 	ActiveDownloadsCounts int64               `json:"activeDownloadsCounts"`
 	TorrentClientStats    torrent.ClientStats `json:"torrentClientStats" swaggerignore:"true"`
 }
@@ -73,6 +74,15 @@ type StatsConfigs struct {
 	TorrentDownloadDisabled             bool    `json:"torrentDownloadDisabled"`
 	TorrentFileExpireDelayFactor        float32 `json:"torrentFileExpireDelayFactor"`
 	TorrentFileExpireExtendHour         int64   `json:"torrentFileExpireExtendHour"`
+}
+
+type Tasks struct {
+	DbsInvalidLocalLinksRemover string `json:"dbsInvalidLocalLinksRemover"`
+	InvalidLocalFilesRemover    string `json:"invalidLocalFilesRemover"`
+	ExpiredFilesRemover         string `json:"expiredFilesRemover"`
+	InCompleteDownloadsRemover  string `json:"inCompleteDownloadsRemover"`
+	OrphanMetaFilesRemover      string `json:"orphanMetaFilesRemover"`
+	DiskSpaceCleaner            string `json:"diskSpaceCleaner"`
 }
 
 var ErrFileNotFound = errors.New("file not found")

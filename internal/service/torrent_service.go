@@ -65,6 +65,7 @@ type TorrentService struct {
 	localFiles               []*model.LocalFile
 	localFilesMux            *sync.Mutex
 	stats                    *model.Stats
+	tasks                    *model.Tasks
 	activeDownloadsCounts    int64
 	activeDownloadsCountsMux *sync.Mutex
 }
@@ -95,6 +96,7 @@ func NewTorrentService(torrentRepo repository.ITorrentRepository) *TorrentServic
 			RemainingSpaceMb:          1024,
 			TorrentDownloadTimeoutMin: 30,
 		},
+		tasks:                    &model.Tasks{},
 		activeDownloadsCounts:    0,
 		activeDownloadsCountsMux: &sync.Mutex{},
 	}
@@ -122,6 +124,7 @@ func (m *TorrentService) GetTorrentStatus() *model.TorrentStatusRes {
 		DownloadingFiles:      m.downloadingFiles,
 		LocalFiles:            m.localFiles,
 		Stats:                 m.stats,
+		Tasks:                 m.tasks,
 		ActiveDownloadsCounts: m.activeDownloadsCounts,
 		TorrentClientStats:    m.torrentClient.Stats(),
 	}
@@ -630,6 +633,11 @@ func (m *TorrentService) GetDiskSpaceUsage() (int64, error) {
 }
 
 func (m *TorrentService) CleanUpSpace() error {
+	m.tasks.DiskSpaceCleaner = "handling"
+	defer func() {
+		m.tasks.DiskSpaceCleaner = ""
+	}()
+
 	lruActivationThreshold := minInt64(10*1024, 4*m.stats.Configs.DownloadSpaceThresholdMb)
 
 	if m.stats.RemainingSpaceMb < lruActivationThreshold {
@@ -753,6 +761,7 @@ func (m *TorrentService) RemoveOrphanTorrentMetaFiles() error {
 		return err
 	}
 
+	removedCounter := int64(0)
 A:
 	for _, dir := range dirs {
 		if dir.IsDir() {
@@ -776,11 +785,15 @@ A:
 							continue A
 						}
 					}
+					removedCounter++
+					m.tasks.OrphanMetaFilesRemover = fmt.Sprintf("handling: %v removed", removedCounter)
 					_ = m.RemoveTorrentMetaFile(filename)
 				}
 			}
 		}
 	}
+
+	m.tasks.OrphanMetaFilesRemover = fmt.Sprintf("%v removed", removedCounter)
 
 	return err
 }
@@ -791,6 +804,7 @@ func (m *TorrentService) RemoveIncompleteDownloadFiles() error {
 		return err
 	}
 
+	removedCounter := int64(0)
 A:
 	for _, dir := range dirs {
 		if dir.IsDir() {
@@ -815,6 +829,8 @@ A:
 				for _, dir2 := range dirs {
 					if strings.Contains(dir2.Name(), fmt.Sprintf("-%v.torrent", filename)) {
 						// torrent-meta-file exist --> incomplete download
+						removedCounter++
+						m.tasks.InCompleteDownloadsRemover = fmt.Sprintf("handling: %v removed", removedCounter)
 						err = m.removeTorrentFile(filename, false)
 						if err == nil {
 							err = m.RemoveTorrentMetaFile(dir2.Name())
@@ -825,6 +841,8 @@ A:
 		}
 	}
 
+	m.tasks.InCompleteDownloadsRemover = fmt.Sprintf("%v removed", removedCounter)
+
 	return err
 }
 
@@ -832,12 +850,16 @@ func (m *TorrentService) RemoveExpiredLocalFiles() error {
 	m.localFilesMux.Lock()
 	defer m.localFilesMux.Unlock()
 
+	removedCounter := int64(0)
 	for _, lf := range m.localFiles {
 		if time.Now().After(lf.ExpireTime) && *lf.ActiveDownloads == 0 && time.Now().After(lf.LastDownloadTime.Add(m.GetTorrentFileExpireDelay(lf.Size))) {
 			// file is expired
+			removedCounter++
 			_ = m.removeTorrentFile(lf.Name, true)
 		}
+		m.tasks.ExpiredFilesRemover = fmt.Sprintf("handling: %v removed", removedCounter)
 	}
+	m.tasks.ExpiredFilesRemover = fmt.Sprintf("%v removed", removedCounter)
 
 	return nil
 }
@@ -846,11 +868,13 @@ func (m *TorrentService) RemoveInvalidLocalLinkFromDb() error {
 	m.localFilesMux.Lock()
 	defer m.localFilesMux.Unlock()
 
+	m.tasks.DbsInvalidLocalLinksRemover = "handling serials: started"
 	serialsCursor, err := m.torrentRepo.GetAllSerialTorrentLocalLinks()
 	defer func() {
 		if serialsCursor != nil {
 			_ = serialsCursor.Close(context.TODO())
 		}
+		m.tasks.DbsInvalidLocalLinksRemover = ""
 	}()
 
 	if err != nil {
@@ -859,9 +883,11 @@ func (m *TorrentService) RemoveInvalidLocalLinkFromDb() error {
 	}
 
 	_ = m.HandleTorrentLinksRemoveCursor(serialsCursor, "serial")
+	m.tasks.DbsInvalidLocalLinksRemover = "handling serials: ended"
 
 	//-----------------------------------
 
+	m.tasks.DbsInvalidLocalLinksRemover = "handling movies: started"
 	moviesCursor, err := m.torrentRepo.GetAllMovieTorrentLocalLinks()
 	defer func() {
 		if moviesCursor != nil {
@@ -875,6 +901,7 @@ func (m *TorrentService) RemoveInvalidLocalLinkFromDb() error {
 	}
 
 	_ = m.HandleTorrentLinksRemoveCursor(moviesCursor, "movie")
+	m.tasks.DbsInvalidLocalLinksRemover = "handling movies: ended"
 
 	return nil
 }
@@ -883,8 +910,15 @@ func (m *TorrentService) RemoveLocalFilesNotFoundInDb() error {
 	m.localFilesMux.Lock()
 	defer m.localFilesMux.Unlock()
 
+	defer func() {
+		m.tasks.InvalidLocalFilesRemover = ""
+	}()
+
 	arr := []string{}
+	checkedCounter := int64(0)
+	removedCounter := int64(0)
 	for i, lf := range m.localFiles {
+		checkedCounter++
 		arr = append(arr, lf.DownloadLink)
 		if len(arr) > 19 || i == len(m.localFiles)-1 {
 			serialLocalLinks, err := m.torrentRepo.FindSerialTorrentLinks(arr)
@@ -905,9 +939,12 @@ func (m *TorrentService) RemoveLocalFilesNotFoundInDb() error {
 				if !slices.Contains(serialLocalLinks, l) {
 					temp := strings.Split(l, "/")
 					filename := temp[len(temp)-1]
+					removedCounter++
 					_ = m.removeTorrentFile(filename, false)
 				}
 			}
+
+			m.tasks.InvalidLocalFilesRemover = fmt.Sprintf("handling: %v checked, %v removed", checkedCounter, removedCounter)
 
 			arr = []string{}
 		}
@@ -922,12 +959,15 @@ func (m *TorrentService) HandleTorrentLinksRemoveCursor(cursor *mongo.Cursor, mo
 	}
 
 	var doc map[string]string
+	checkCounter := int64(0)
+	removeCounter := int64(0)
 	for cursor.Next(context.TODO()) {
 		err := cursor.Decode(&doc)
 		if err != nil {
 			errorHandler.SaveError(err.Error(), err)
 			continue
 		}
+		checkCounter++
 
 		temp := strings.Split(doc["localLink"], "/")
 		filename := temp[len(temp)-1]
@@ -940,8 +980,11 @@ func (m *TorrentService) HandleTorrentLinksRemoveCursor(cursor *mongo.Cursor, mo
 			}
 		}
 		if !fileExist {
+			removeCounter++
 			_ = m.torrentRepo.RemoveTorrentLocalLink(movieType, doc["localLink"])
 		}
+
+		m.tasks.DbsInvalidLocalLinksRemover = fmt.Sprintf("handling %vs: %v checked, %v removed", movieType, checkCounter, removeCounter)
 	}
 
 	return nil
