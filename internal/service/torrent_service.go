@@ -37,6 +37,7 @@ type ITorrentService interface {
 	SyncFilesAndDb(done <-chan bool)
 	UpdateDiskInfo(done <-chan bool)
 	GetDiskSpaceUsage() (int64, error)
+	CleanUpSpace() error
 	DownloadTorrentMetaFile(url string, location string) (string, error)
 	RemoveTorrentMetaFile(metaFileName string) error
 	RemoveExpiredLocalFiles() error
@@ -234,7 +235,7 @@ func (m *TorrentService) DownloadFile(movieId string, torrentUrl string) (d *mod
 				d.Error = err
 
 				if !errors.Is(err, model.ErrFileAlreadyExist) {
-					_ = m.removeTorrentFile(d.Name)
+					_ = m.removeTorrentFile(d.Name, false)
 				}
 
 				if d.MetaFileName != "" {
@@ -301,7 +302,7 @@ func (m *TorrentService) CancelDownload(fileName string) error {
 	for i := range m.downloadingFiles {
 		if m.downloadingFiles[i].Name == fileName {
 			m.downloadingFiles[i].Torrent.Drop()
-			_ = m.removeTorrentFile(m.downloadingFiles[i].Name)
+			_ = m.removeTorrentFile(m.downloadingFiles[i].Name, false)
 			break
 		}
 	}
@@ -333,19 +334,14 @@ func (m *TorrentService) RemoveDownload(fileName string) error {
 		return d.Name == fileName
 	})
 
-	_ = m.removeTorrentFile(fileName)
+	_ = m.removeTorrentFile(fileName, false)
 	if strings.HasSuffix(fileName, ".mkv") {
 		// remove converted file
 		mp4File := strings.Replace(fileName, ".mkv", ".mp4", 1)
 		if _, err := os.Stat("./downloads/" + fileName); err == nil {
-			_ = m.removeTorrentFile(mp4File)
+			_ = m.removeTorrentFile(mp4File, false)
 		}
 	}
-
-	localUrl := "/downloads/" + fileName
-	// don't know the type
-	_ = m.torrentRepo.RemoveTorrentLocalLink("movie", localUrl)
-	_ = m.torrentRepo.RemoveTorrentLocalLink("serial", localUrl)
 
 	return nil
 }
@@ -606,7 +602,8 @@ func (m *TorrentService) UpdateDiskInfo(done <-chan bool) {
 
 			m.diskInfo = info
 
-			//todo : handle when theres no space and running downloads
+			_ = m.CleanUpSpace()
+
 		}
 	}
 }
@@ -630,6 +627,67 @@ func (m *TorrentService) GetDiskSpaceUsage() (int64, error) {
 		}
 	}
 	return totalSize, nil
+}
+
+func (m *TorrentService) CleanUpSpace() error {
+	lruActivationThreshold := minInt64(10*1024, 4*m.diskInfo.Configs.DownloadSpaceThresholdMb)
+
+	if m.diskInfo.RemainingSpaceMb < lruActivationThreshold {
+		m.localFilesMux.Lock()
+
+		// sort by expire time
+		slices.SortFunc(m.localFiles, func(a, b *model.LocalFile) int {
+			compareExpire := a.ExpireTime.Compare(b.ExpireTime)
+			if compareExpire != 0 {
+				return -compareExpire
+			}
+			return 0
+		})
+
+		freedSpace := int64(0)
+		for i, lf := range m.localFiles {
+			if i > len(m.localFiles) || (m.diskInfo.RemainingSpaceMb+freedSpace >= lruActivationThreshold) {
+				break
+			}
+
+			if *lf.TotalDownloads == 0 {
+				freedSpace += lf.Size / (1024 * 1024)
+				_ = m.removeTorrentFile(lf.Name, true)
+			}
+		}
+
+		// sort by last download time
+		slices.SortFunc(m.localFiles, func(a, b *model.LocalFile) int {
+			compareExpire := a.LastDownloadTime.Compare(b.LastDownloadTime)
+			if compareExpire != 0 {
+				return -compareExpire
+			}
+			if *a.TotalDownloads < *b.TotalDownloads {
+				return 1
+			}
+			if *a.TotalDownloads > *b.TotalDownloads {
+				return -1
+			}
+			return 0
+		})
+
+		for i, lf := range m.localFiles {
+			if i > len(m.localFiles) || (m.diskInfo.RemainingSpaceMb+freedSpace >= lruActivationThreshold) {
+				break
+			}
+
+			if *lf.ActiveDownloads == 0 {
+				err := m.removeTorrentFile(lf.Name, true)
+				if err != nil {
+					freedSpace += lf.Size
+				}
+			}
+		}
+
+		m.localFilesMux.Unlock()
+	}
+
+	return nil
 }
 
 //-----------------------------------------
@@ -676,13 +734,15 @@ func (m *TorrentService) RemoveTorrentMetaFile(metaFileName string) error {
 	return err
 }
 
-func (m *TorrentService) removeTorrentFile(filename string) error {
+func (m *TorrentService) removeTorrentFile(filename string, updateDb bool) error {
 	err := os.Remove(m.downloadDir + filename)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			errorMessage := fmt.Sprintf("Error on removing torrent file: %s", err)
 			errorHandler.SaveError(errorMessage, err)
 		}
+	} else if updateDb {
+		_ = m.torrentRepo.RemoveTorrentLocalLink("serial", m.GetDownloadLink(filename))
 	}
 	return err
 }
@@ -755,7 +815,7 @@ A:
 				for _, dir2 := range dirs {
 					if strings.Contains(dir2.Name(), fmt.Sprintf("-%v.torrent", filename)) {
 						// torrent-meta-file exist --> incomplete download
-						err = m.removeTorrentFile(filename)
+						err = m.removeTorrentFile(filename, false)
 						if err == nil {
 							err = m.RemoveTorrentMetaFile(dir2.Name())
 						}
@@ -775,7 +835,7 @@ func (m *TorrentService) RemoveExpiredLocalFiles() error {
 	for _, lf := range m.localFiles {
 		if time.Now().After(lf.ExpireTime) && *lf.ActiveDownloads == 0 && time.Now().After(lf.LastDownloadTime.Add(m.GetTorrentFileExpireDelay(lf.Size))) {
 			// file is expired
-			_ = m.removeTorrentFile(lf.Name)
+			_ = m.removeTorrentFile(lf.Name, true)
 		}
 	}
 
@@ -845,7 +905,7 @@ func (m *TorrentService) RemoveLocalFilesNotFoundInDb() error {
 				if !slices.Contains(serialLocalLinks, l) {
 					temp := strings.Split(l, "/")
 					filename := temp[len(temp)-1]
-					_ = m.removeTorrentFile(filename)
+					_ = m.removeTorrentFile(filename, false)
 				}
 			}
 
@@ -1020,6 +1080,13 @@ func (m *TorrentService) IsTorrentFile(filename string, size int64) (bool, error
 
 func maxInt64(a, b int64) int64 {
 	if a > b {
+		return a
+	}
+	return b
+}
+
+func minInt64(a, b int64) int64 {
+	if a < b {
 		return a
 	}
 	return b
