@@ -460,67 +460,6 @@ const docTemplate = `{
                 }
             }
         },
-        "model.DiskInfo": {
-            "type": "object",
-            "properties": {
-                "configs": {
-                    "$ref": "#/definitions/model.DiskInfoConfigs"
-                },
-                "downloadingFilesCurrentSizeMb": {
-                    "type": "integer"
-                },
-                "downloadingFilesFinalSizeMb": {
-                    "type": "integer"
-                },
-                "localFilesSizeMb": {
-                    "type": "integer"
-                },
-                "remainingSpaceMb": {
-                    "type": "integer"
-                },
-                "torrentDownloadTimeoutMin": {
-                    "type": "integer"
-                },
-                "totalFilesSizeMb": {
-                    "type": "integer"
-                }
-            }
-        },
-        "model.DiskInfoConfigs": {
-            "type": "object",
-            "properties": {
-                "downloadFileSizeLimitMb": {
-                    "type": "integer"
-                },
-                "downloadSpaceLimitMb": {
-                    "type": "integer"
-                },
-                "downloadSpaceThresholdMb": {
-                    "type": "integer"
-                },
-                "torrentDownloadConcurrencyLimit": {
-                    "type": "integer"
-                },
-                "torrentDownloadDisabled": {
-                    "type": "boolean"
-                },
-                "torrentFileExpireDelayFactor": {
-                    "type": "number"
-                },
-                "torrentFileExpireExtendHour": {
-                    "type": "integer"
-                },
-                "torrentFilesExpireHour": {
-                    "type": "integer"
-                },
-                "torrentFilesServingConcurrencyLimit": {
-                    "type": "integer"
-                },
-                "torrentFilesServingDisabled": {
-                    "type": "boolean"
-                }
-            }
-        },
         "model.DownloadingFile": {
             "type": "object",
             "properties": {
@@ -586,6 +525,67 @@ const docTemplate = `{
                 }
             }
         },
+        "model.Stats": {
+            "type": "object",
+            "properties": {
+                "configs": {
+                    "$ref": "#/definitions/model.StatsConfigs"
+                },
+                "downloadingFilesCurrentSizeMb": {
+                    "type": "integer"
+                },
+                "downloadingFilesFinalSizeMb": {
+                    "type": "integer"
+                },
+                "localFilesSizeMb": {
+                    "type": "integer"
+                },
+                "remainingSpaceMb": {
+                    "type": "integer"
+                },
+                "torrentDownloadTimeoutMin": {
+                    "type": "integer"
+                },
+                "totalFilesSizeMb": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.StatsConfigs": {
+            "type": "object",
+            "properties": {
+                "downloadFileSizeLimitMb": {
+                    "type": "integer"
+                },
+                "downloadSpaceLimitMb": {
+                    "type": "integer"
+                },
+                "downloadSpaceThresholdMb": {
+                    "type": "integer"
+                },
+                "torrentDownloadConcurrencyLimit": {
+                    "type": "integer"
+                },
+                "torrentDownloadDisabled": {
+                    "type": "boolean"
+                },
+                "torrentFileExpireDelayFactor": {
+                    "type": "number"
+                },
+                "torrentFileExpireExtendHour": {
+                    "type": "integer"
+                },
+                "torrentFilesExpireHour": {
+                    "type": "integer"
+                },
+                "torrentFilesServingConcurrencyLimit": {
+                    "type": "integer"
+                },
+                "torrentFilesServingDisabled": {
+                    "type": "boolean"
+                }
+            }
+        },
         "model.StreamStatusRes": {
             "type": "object",
             "properties": {
@@ -603,9 +603,6 @@ const docTemplate = `{
                 "activeDownloadsCounts": {
                     "type": "integer"
                 },
-                "diskInfo": {
-                    "$ref": "#/definitions/model.DiskInfo"
-                },
                 "downloadingFiles": {
                     "type": "array",
                     "items": {
@@ -617,6 +614,9 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/model.LocalFile"
                     }
+                },
+                "stats": {
+                    "$ref": "#/definitions/model.Stats"
                 }
             }
         },

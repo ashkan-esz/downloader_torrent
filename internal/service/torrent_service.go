@@ -35,7 +35,7 @@ type ITorrentService interface {
 	UpdateLocalFiles(done <-chan bool)
 	CleanUp(done <-chan bool)
 	SyncFilesAndDb(done <-chan bool)
-	UpdateDiskInfo(done <-chan bool)
+	UpdateStats(done <-chan bool)
 	GetDiskSpaceUsage() (int64, error)
 	CleanUpSpace() error
 	DownloadTorrentMetaFile(url string, location string) (string, error)
@@ -64,7 +64,7 @@ type TorrentService struct {
 	downloadingFilesMux      *sync.Mutex
 	localFiles               []*model.LocalFile
 	localFilesMux            *sync.Mutex
-	diskInfo                 *model.DiskInfo
+	stats                    *model.Stats
 	activeDownloadsCounts    int64
 	activeDownloadsCountsMux *sync.Mutex
 }
@@ -87,8 +87,8 @@ func NewTorrentService(torrentRepo repository.ITorrentRepository) *TorrentServic
 		downloadingFilesMux: &sync.Mutex{},
 		localFiles:          make([]*model.LocalFile, 0),
 		localFilesMux:       &sync.Mutex{},
-		diskInfo: &model.DiskInfo{
-			Configs: &model.DiskInfoConfigs{
+		stats: &model.Stats{
+			Configs: &model.StatsConfigs{
 				DownloadFileSizeLimitMb: 512,
 				TorrentDownloadDisabled: true,
 			},
@@ -100,7 +100,7 @@ func NewTorrentService(torrentRepo repository.ITorrentRepository) *TorrentServic
 	}
 
 	done := make(chan bool)
-	go service.UpdateDiskInfo(done)
+	go service.UpdateStats(done)
 	go service.UpdateDownloadingFiles(done)
 	go service.UpdateLocalFiles(done)
 	go service.CleanUp(done)
@@ -121,7 +121,7 @@ func (m *TorrentService) GetTorrentStatus() *model.TorrentStatusRes {
 	return &model.TorrentStatusRes{
 		DownloadingFiles:      m.downloadingFiles,
 		LocalFiles:            m.localFiles,
-		DiskInfo:              m.diskInfo,
+		Stats:                 m.stats,
 		ActiveDownloadsCounts: m.activeDownloadsCounts,
 		TorrentClientStats:    m.torrentClient.Stats(),
 	}
@@ -131,11 +131,11 @@ func (m *TorrentService) GetTorrentStatus() *model.TorrentStatusRes {
 //------------------------------------------
 
 func (m *TorrentService) DownloadFile(movieId string, torrentUrl string) (d *model.DownloadingFile, err error) {
-	if m.diskInfo.Configs.TorrentDownloadDisabled {
+	if m.stats.Configs.TorrentDownloadDisabled {
 		return nil, model.ErrTorrentDownloadDisabled
 	}
 
-	if m.diskInfo.RemainingSpaceMb < m.diskInfo.Configs.DownloadSpaceThresholdMb && m.diskInfo.Configs.DownloadSpaceThresholdMb > 0 {
+	if m.stats.RemainingSpaceMb < m.stats.Configs.DownloadSpaceThresholdMb && m.stats.Configs.DownloadSpaceThresholdMb > 0 {
 		return nil, errors.New("maximum disk usage exceeded")
 	}
 
@@ -152,7 +152,7 @@ func (m *TorrentService) DownloadFile(movieId string, torrentUrl string) (d *mod
 		}
 	}
 
-	if int64(len(m.downloadingFiles)) >= m.diskInfo.Configs.TorrentDownloadConcurrencyLimit {
+	if int64(len(m.downloadingFiles)) >= m.stats.Configs.TorrentDownloadConcurrencyLimit {
 		m.downloadingFilesMux.Unlock()
 		return nil, model.ErrTorrentDownloadConcurrencyLimit
 	}
@@ -175,7 +175,7 @@ func (m *TorrentService) DownloadFile(movieId string, torrentUrl string) (d *mod
 	m.downloadingFilesMux.Unlock()
 
 	downloadDone := make(chan bool)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(m.diskInfo.TorrentDownloadTimeoutMin)*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(m.stats.TorrentDownloadTimeoutMin)*time.Minute)
 
 	go func() {
 		defer cancel()
@@ -281,13 +281,13 @@ func (m *TorrentService) DownloadFile(movieId string, torrentUrl string) (d *mod
 		return d, errors.New("File is empty")
 	}
 
-	if d.Size > m.diskInfo.Configs.DownloadFileSizeLimitMb*1024*1024 && m.diskInfo.Configs.DownloadFileSizeLimitMb > 0 {
-		m := fmt.Sprintf("File size exceeds the limit (%vmb)", m.diskInfo.Configs.DownloadFileSizeLimitMb)
+	if d.Size > m.stats.Configs.DownloadFileSizeLimitMb*1024*1024 && m.stats.Configs.DownloadFileSizeLimitMb > 0 {
+		m := fmt.Sprintf("File size exceeds the limit (%vmb)", m.stats.Configs.DownloadFileSizeLimitMb)
 		return d, errors.New(m)
 	}
 
-	if d.Size > (m.diskInfo.RemainingSpaceMb-200)*1024*1024 && m.diskInfo.RemainingSpaceMb > 0 {
-		m := fmt.Sprintf("Not Enough space left (%vmb/%vmb)", d.Size/(1024*1024), m.diskInfo.RemainingSpaceMb-200)
+	if d.Size > (m.stats.RemainingSpaceMb-200)*1024*1024 && m.stats.RemainingSpaceMb > 0 {
+		m := fmt.Sprintf("Not Enough space left (%vmb/%vmb)", d.Size/(1024*1024), m.stats.RemainingSpaceMb-200)
 		return d, errors.New(m)
 	}
 	//---------------------------------------------
@@ -347,7 +347,7 @@ func (m *TorrentService) RemoveDownload(fileName string) error {
 }
 
 func (m *TorrentService) ExtendLocalFileExpireTime(filename string) (time.Time, error) {
-	if m.diskInfo.Configs.TorrentFileExpireExtendHour == 0 {
+	if m.stats.Configs.TorrentFileExpireExtendHour == 0 {
 		return time.Time{}, errors.New("extending local files expire time is disabled")
 	}
 
@@ -381,8 +381,8 @@ func (m *TorrentService) ExtendLocalFileExpireTime(filename string) (time.Time, 
 				}
 			}
 
-			newTime := lf.ExpireTime.Add(time.Duration(m.diskInfo.Configs.TorrentFileExpireExtendHour) * time.Hour)
-			newAccessTime := downloadTime.Add(time.Duration(m.diskInfo.Configs.TorrentFileExpireExtendHour) * time.Hour)
+			newTime := lf.ExpireTime.Add(time.Duration(m.stats.Configs.TorrentFileExpireExtendHour) * time.Hour)
+			newAccessTime := downloadTime.Add(time.Duration(m.stats.Configs.TorrentFileExpireExtendHour) * time.Hour)
 
 			err = os.Chtimes(m.downloadDir+filename, newAccessTime, newAccessTime)
 			if err != nil {
@@ -552,7 +552,7 @@ A:
 //-----------------------------------------
 //-----------------------------------------
 
-func (m *TorrentService) UpdateDiskInfo(done <-chan bool) {
+func (m *TorrentService) UpdateStats(done <-chan bool) {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
@@ -565,8 +565,8 @@ func (m *TorrentService) UpdateDiskInfo(done <-chan bool) {
 			totalFilesSize, _ := m.GetDiskSpaceUsage()
 
 			dbConfigs := configs.GetDbConfigs()
-			info := &model.DiskInfo{
-				Configs: &model.DiskInfoConfigs{
+			stats := &model.Stats{
+				Configs: &model.StatsConfigs{
 					DownloadSpaceLimitMb:                dbConfigs.TorrentDownloadMaxSpaceSize,
 					DownloadFileSizeLimitMb:             dbConfigs.TorrentDownloadMaxFileSize,
 					DownloadSpaceThresholdMb:            dbConfigs.TorrentDownloadSpaceThresholdSize,
@@ -593,14 +593,14 @@ func (m *TorrentService) UpdateDiskInfo(done <-chan bool) {
 				downloadFilesCurrentSize += file.DownloadedSize / (1024 * 1024)
 			}
 
-			info.LocalFilesSizeMb = localFilesSize
-			info.DownloadingFilesFinalSizeMb = downloadFilesSize
-			info.DownloadingFilesCurrentSizeMb = downloadFilesCurrentSize
+			stats.LocalFilesSizeMb = localFilesSize
+			stats.DownloadingFilesFinalSizeMb = downloadFilesSize
+			stats.DownloadingFilesCurrentSizeMb = downloadFilesCurrentSize
 
-			maxUsedSpace := maxInt64(info.TotalFilesSizeMb, localFilesSize+downloadFilesSize)
-			info.RemainingSpaceMb = info.Configs.DownloadSpaceLimitMb - maxUsedSpace
+			maxUsedSpace := maxInt64(stats.TotalFilesSizeMb, localFilesSize+downloadFilesSize)
+			stats.RemainingSpaceMb = stats.Configs.DownloadSpaceLimitMb - maxUsedSpace
 
-			m.diskInfo = info
+			m.stats = stats
 
 			_ = m.CleanUpSpace()
 
@@ -630,9 +630,9 @@ func (m *TorrentService) GetDiskSpaceUsage() (int64, error) {
 }
 
 func (m *TorrentService) CleanUpSpace() error {
-	lruActivationThreshold := minInt64(10*1024, 4*m.diskInfo.Configs.DownloadSpaceThresholdMb)
+	lruActivationThreshold := minInt64(10*1024, 4*m.stats.Configs.DownloadSpaceThresholdMb)
 
-	if m.diskInfo.RemainingSpaceMb < lruActivationThreshold {
+	if m.stats.RemainingSpaceMb < lruActivationThreshold {
 		m.localFilesMux.Lock()
 
 		// sort by expire time
@@ -646,7 +646,7 @@ func (m *TorrentService) CleanUpSpace() error {
 
 		freedSpace := int64(0)
 		for i, lf := range m.localFiles {
-			if i > len(m.localFiles) || (m.diskInfo.RemainingSpaceMb+freedSpace >= lruActivationThreshold) {
+			if i > len(m.localFiles) || (m.stats.RemainingSpaceMb+freedSpace >= lruActivationThreshold) {
 				break
 			}
 
@@ -672,7 +672,7 @@ func (m *TorrentService) CleanUpSpace() error {
 		})
 
 		for i, lf := range m.localFiles {
-			if i > len(m.localFiles) || (m.diskInfo.RemainingSpaceMb+freedSpace >= lruActivationThreshold) {
+			if i > len(m.localFiles) || (m.stats.RemainingSpaceMb+freedSpace >= lruActivationThreshold) {
 				break
 			}
 
@@ -954,7 +954,7 @@ func (m *TorrentService) CheckConcurrentServingLimit() bool {
 	m.activeDownloadsCountsMux.Lock()
 	defer m.activeDownloadsCountsMux.Unlock()
 
-	limit := m.diskInfo.Configs.TorrentFilesServingConcurrencyLimit
+	limit := m.stats.Configs.TorrentFilesServingConcurrencyLimit
 
 	return m.activeDownloadsCounts < limit || limit == 0
 }
@@ -998,7 +998,7 @@ func (m *TorrentService) DecrementFileDownloadCount(filename string) {
 //-----------------------------------------
 
 func (m *TorrentService) CheckServingLocalFile(filename string) bool {
-	return !m.diskInfo.Configs.TorrentFilesServingDisabled
+	return !m.stats.Configs.TorrentFilesServingDisabled
 }
 
 func (m *TorrentService) GetDownloadLink(filename string) string {
@@ -1013,7 +1013,7 @@ func (m *TorrentService) GetFileExpireTime(filename string, info os.FileInfo) ti
 		}
 	}()
 
-	expireHour := m.diskInfo.Configs.TorrentFilesExpireHour
+	expireHour := m.stats.Configs.TorrentFilesExpireHour
 	if expireHour == 0 {
 		expireHour = 48
 	}
@@ -1041,7 +1041,7 @@ func (m *TorrentService) GetFileExpireTime(filename string, info os.FileInfo) ti
 }
 
 func (m *TorrentService) GetTorrentFileExpireDelay(size int64) time.Duration {
-	return time.Duration(float32(size/(1024*1024))*m.diskInfo.Configs.TorrentFileExpireDelayFactor) * time.Second
+	return time.Duration(float32(size/(1024*1024))*m.stats.Configs.TorrentFileExpireDelayFactor) * time.Second
 }
 
 //-----------------------------------------

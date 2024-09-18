@@ -10,7 +10,7 @@ import (
 type TorrentStatusRes struct {
 	DownloadingFiles      []*DownloadingFile  `json:"downloadingFiles"`
 	LocalFiles            []*LocalFile        `json:"localFiles"`
-	DiskInfo              *DiskInfo           `json:"diskInfo"`
+	Stats                 *Stats              `json:"stats"`
 	ActiveDownloadsCounts int64               `json:"activeDownloadsCounts"`
 	TorrentClientStats    torrent.ClientStats `json:"torrentClientStats" swaggerignore:"true"`
 }
@@ -52,17 +52,17 @@ type ConvertingFile struct {
 	Duration float64 `json:"duration"`
 }
 
-type DiskInfo struct {
-	Configs                       *DiskInfoConfigs `json:"configs"`
-	TotalFilesSizeMb              int64            `json:"totalFilesSizeMb"`
-	LocalFilesSizeMb              int64            `json:"localFilesSizeMb"`
-	DownloadingFilesFinalSizeMb   int64            `json:"downloadingFilesFinalSizeMb"`
-	DownloadingFilesCurrentSizeMb int64            `json:"downloadingFilesCurrentSizeMb"`
-	RemainingSpaceMb              int64            `json:"remainingSpaceMb"`
-	TorrentDownloadTimeoutMin     int64            `json:"torrentDownloadTimeoutMin"`
+type Stats struct {
+	Configs                       *StatsConfigs `json:"configs"`
+	TotalFilesSizeMb              int64         `json:"totalFilesSizeMb"`
+	LocalFilesSizeMb              int64         `json:"localFilesSizeMb"`
+	DownloadingFilesFinalSizeMb   int64         `json:"downloadingFilesFinalSizeMb"`
+	DownloadingFilesCurrentSizeMb int64         `json:"downloadingFilesCurrentSizeMb"`
+	RemainingSpaceMb              int64         `json:"remainingSpaceMb"`
+	TorrentDownloadTimeoutMin     int64         `json:"torrentDownloadTimeoutMin"`
 }
 
-type DiskInfoConfigs struct {
+type StatsConfigs struct {
 	DownloadSpaceThresholdMb            int64   `json:"downloadSpaceThresholdMb"`
 	DownloadSpaceLimitMb                int64   `json:"downloadSpaceLimitMb"`
 	DownloadFileSizeLimitMb             int64   `json:"downloadFileSizeLimitMb"`

@@ -11,46 +11,6 @@ definitions:
       size:
         type: integer
     type: object
-  model.DiskInfo:
-    properties:
-      configs:
-        $ref: '#/definitions/model.DiskInfoConfigs'
-      downloadingFilesCurrentSizeMb:
-        type: integer
-      downloadingFilesFinalSizeMb:
-        type: integer
-      localFilesSizeMb:
-        type: integer
-      remainingSpaceMb:
-        type: integer
-      torrentDownloadTimeoutMin:
-        type: integer
-      totalFilesSizeMb:
-        type: integer
-    type: object
-  model.DiskInfoConfigs:
-    properties:
-      downloadFileSizeLimitMb:
-        type: integer
-      downloadSpaceLimitMb:
-        type: integer
-      downloadSpaceThresholdMb:
-        type: integer
-      torrentDownloadConcurrencyLimit:
-        type: integer
-      torrentDownloadDisabled:
-        type: boolean
-      torrentFileExpireDelayFactor:
-        type: number
-      torrentFileExpireExtendHour:
-        type: integer
-      torrentFilesExpireHour:
-        type: integer
-      torrentFilesServingConcurrencyLimit:
-        type: integer
-      torrentFilesServingDisabled:
-        type: boolean
-    type: object
   model.DownloadingFile:
     properties:
       downloadedSize:
@@ -94,6 +54,46 @@ definitions:
       totalDownloads:
         type: integer
     type: object
+  model.Stats:
+    properties:
+      configs:
+        $ref: '#/definitions/model.StatsConfigs'
+      downloadingFilesCurrentSizeMb:
+        type: integer
+      downloadingFilesFinalSizeMb:
+        type: integer
+      localFilesSizeMb:
+        type: integer
+      remainingSpaceMb:
+        type: integer
+      torrentDownloadTimeoutMin:
+        type: integer
+      totalFilesSizeMb:
+        type: integer
+    type: object
+  model.StatsConfigs:
+    properties:
+      downloadFileSizeLimitMb:
+        type: integer
+      downloadSpaceLimitMb:
+        type: integer
+      downloadSpaceThresholdMb:
+        type: integer
+      torrentDownloadConcurrencyLimit:
+        type: integer
+      torrentDownloadDisabled:
+        type: boolean
+      torrentFileExpireDelayFactor:
+        type: number
+      torrentFileExpireExtendHour:
+        type: integer
+      torrentFilesExpireHour:
+        type: integer
+      torrentFilesServingConcurrencyLimit:
+        type: integer
+      torrentFilesServingDisabled:
+        type: boolean
+    type: object
   model.StreamStatusRes:
     properties:
       convertingFiles:
@@ -105,8 +105,6 @@ definitions:
     properties:
       activeDownloadsCounts:
         type: integer
-      diskInfo:
-        $ref: '#/definitions/model.DiskInfo'
       downloadingFiles:
         items:
           $ref: '#/definitions/model.DownloadingFile'
@@ -115,6 +113,8 @@ definitions:
         items:
           $ref: '#/definitions/model.LocalFile'
         type: array
+      stats:
+        $ref: '#/definitions/model.Stats'
     type: object
   response.ResponseErrorModel:
     properties:
