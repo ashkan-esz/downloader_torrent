@@ -17,6 +17,8 @@ type IDownloadQueue interface {
 	checkSave()
 	saveQueue()
 	loadQueue()
+	Start(consumerFunc ConsumerFunc, emptyQueueSleep time.Duration)
+	worker(wid int, consumerFunc ConsumerFunc, emptyQueueSleep time.Duration)
 	Close()
 }
 
@@ -29,31 +31,35 @@ type DownloadQueue struct {
 	saveQueueInterval time.Duration
 	batchSize         int
 	operationCount    int
-	done              chan bool
+	doneChan          chan bool
+	done              bool
+	wg                *sync.WaitGroup
 }
 
 func NewDownloadQueue(queueFile string, workers int, capacity int, saveQueueInterval time.Duration, batchSize int) *DownloadQueue {
 	dq := &DownloadQueue{
-		queue: make([]FileInfo, 0),
-		//queue:             make([]FileInfo, 0, capacity),
+		queue:             make([]FileInfo, 0, capacity),
 		queueFile:         queueFile,
 		capacity:          capacity,
 		workers:           workers,
 		saveQueueInterval: saveQueueInterval,
 		batchSize:         batchSize,
 		operationCount:    0,
-		done:              make(chan bool),
+		doneChan:          make(chan bool),
+		done:              false,
+		wg:                &sync.WaitGroup{},
 	}
 
 	dq.loadQueue()
 	go dq.periodicSaveQueue()
-	dq.Start()
 
 	return dq
 }
 
 //---------------------------------------
 //---------------------------------------
+
+type ConsumerFunc func(wid int, fileInfo FileInfo)
 
 type FileInfo struct {
 	URL      string
@@ -99,19 +105,35 @@ func (dq *DownloadQueue) Dequeue() (FileInfo, bool) {
 //---------------------------------------
 //---------------------------------------
 
-func (dq *DownloadQueue) Start() {
-	// todo :
-	//for i := 0; i < q.workers; i++ {
-	//	wid := i
-	//	go q.worker(wid)
-	//}
+func (dq *DownloadQueue) Start(consumerFunc ConsumerFunc, emptyQueueSleep time.Duration) {
+	for i := 0; i < dq.workers; i++ {
+		dq.wg.Add(1)
+		go dq.worker(i, consumerFunc, emptyQueueSleep)
+	}
 }
 
-func (dq *DownloadQueue) worker(wid int) {
-	// todo :
-	//for qItem := range q.queue {
-	//	qItem()
-	//}
+func (dq *DownloadQueue) worker(wid int, consumerFunc ConsumerFunc, emptyQueueSleep time.Duration) {
+	defer dq.wg.Done()
+
+	for {
+		if dq.done == true {
+			//fmt.Println("consumer closed,done ", wid)
+			return
+		}
+
+		item, exist := dq.Dequeue()
+
+		//fmt.Printf("Consumer %d processing item: %v\n", wid, item)
+
+		if !exist {
+			// Queue is empty
+			time.Sleep(emptyQueueSleep)
+			continue
+		}
+
+		// magic/logic happens here
+		consumerFunc(wid, item)
+	}
 }
 
 //---------------------------------------
@@ -139,7 +161,8 @@ func (dq *DownloadQueue) periodicSaveQueue() {
 
 	for {
 		select {
-		case <-dq.done:
+		case <-dq.doneChan:
+			//fmt.Println("periodic save exit")
 			return
 		case <-ticker.C:
 			if dq.operationCount > 0 {
@@ -197,7 +220,9 @@ func (dq *DownloadQueue) loadQueue() {
 }
 
 func (dq *DownloadQueue) Close() {
-	dq.done <- true
+	dq.doneChan <- true
+	dq.done = true
+	dq.wg.Wait()
 	dq.mutex.Lock()
 	dq.saveQueue()
 	dq.mutex.Unlock()
