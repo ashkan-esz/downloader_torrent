@@ -647,7 +647,7 @@ func (m *TorrentService) CleanUpSpace() error {
 		slices.SortFunc(m.localFiles, func(a, b *model.LocalFile) int {
 			compareExpire := a.ExpireTime.Compare(b.ExpireTime)
 			if compareExpire != 0 {
-				return -compareExpire
+				return compareExpire
 			}
 			return 0
 		})
@@ -668,13 +668,13 @@ func (m *TorrentService) CleanUpSpace() error {
 		slices.SortFunc(m.localFiles, func(a, b *model.LocalFile) int {
 			compareExpire := a.LastDownloadTime.Compare(b.LastDownloadTime)
 			if compareExpire != 0 {
-				return -compareExpire
+				return compareExpire
 			}
 			if *a.TotalDownloads < *b.TotalDownloads {
-				return 1
+				return -1
 			}
 			if *a.TotalDownloads > *b.TotalDownloads {
-				return -1
+				return 1
 			}
 			return 0
 		})
