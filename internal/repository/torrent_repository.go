@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -21,6 +22,9 @@ type ITorrentRepository interface {
 	GetAllMovieTorrentLocalLinks() (*mongo.Cursor, error)
 	FindSerialTorrentLinks(searchList []string) ([]string, error)
 	FindMovieTorrentLinks(searchList []string) ([]string, error)
+	GetTorrentAutoDownloaderLinks() ([]TorrentAutoDownloaderLinksRes, error)
+	UpdateTorrentAutoDownloaderPullDownloadLink(movieId string, torrentUrl string) error
+	UpdateTorrentAutoDownloaderPullRemoveLink(movieType string, torrentUrl string) error
 }
 
 type TorrentRepository struct {
@@ -37,6 +41,14 @@ func NewTorrentRepository(mongodb *mongo.Database) *TorrentRepository {
 type CheckTorrentLinkExistRes struct {
 	Title string `bson:"title"`
 	Type  string `bson:"type"`
+}
+
+type TorrentAutoDownloaderLinksRes struct {
+	Id                   primitive.ObjectID `bson:"_id"`
+	Title                string             `bson:"title"`
+	Type                 string             `bson:"type"`
+	DownloadTorrentLinks []string           `bson:"downloadTorrentLinks"`
+	RemoveTorrentLinks   []string           `bson:"removeTorrentLinks"`
 }
 
 //------------------------------------------
@@ -106,6 +118,9 @@ func (m *TorrentRepository) SaveTorrentLocalLink(movieId string, movieType strin
 		"$set": bson.M{
 			updateField:  localUrl,
 			updateField2: expireTime,
+		},
+		"$pull": bson.M{
+			"downloadTorrentLinks": torrentUrl,
 		},
 	}
 
@@ -313,6 +328,7 @@ func (m *TorrentRepository) FindSerialTorrentLinks(searchList []string) ([]strin
 	if err != nil {
 		return nil, err
 	}
+	defer cursor.Close(context.TODO())
 
 	var localLinks []string
 
@@ -355,6 +371,7 @@ func (m *TorrentRepository) FindMovieTorrentLinks(searchList []string) ([]string
 	if err != nil {
 		return nil, err
 	}
+	defer cursor.Close(context.TODO())
 
 	var localLinks []string
 
@@ -373,3 +390,149 @@ func (m *TorrentRepository) FindMovieTorrentLinks(searchList []string) ([]string
 
 //------------------------------------------
 //------------------------------------------
+
+func (m *TorrentRepository) GetTorrentAutoDownloaderLinks() ([]TorrentAutoDownloaderLinksRes, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			// Convert the panic to an error
+			fmt.Printf("recovered from panic: %v\n", r)
+		}
+	}()
+
+	filter := bson.M{
+		"$or": []bson.M{
+			{"downloadTorrentLinks": bson.M{"$ne": bson.A{}}},
+			{"removeTorrentLinks": bson.M{"$ne": bson.A{}}},
+		},
+	}
+
+	projection := bson.M{
+		"title":                1,
+		"type":                 1,
+		"update_date":          1,
+		"downloadTorrentLinks": 1,
+		"removeTorrentLinks":   1,
+	}
+	opts := options.Find().SetSort(bson.D{{"update_date", -1}}).SetProjection(projection)
+
+	cursor, err := m.mongodb.
+		Collection("movies").
+		Find(context.TODO(), filter, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.TODO())
+
+	var r []bson.M
+	err = cursor.All(context.TODO(), &r)
+	if err != nil {
+		return nil, err
+	}
+
+	finalRes := []TorrentAutoDownloaderLinksRes{}
+	for _, el := range r {
+		dl, err := bsonAToStringSlice(el["downloadTorrentLinks"].(bson.A))
+		if err != nil {
+			return nil, err
+		}
+		rl, err := bsonAToStringSlice(el["removeTorrentLinks"].(bson.A))
+		if err != nil {
+			return nil, err
+		}
+
+		finalRes = append(finalRes, TorrentAutoDownloaderLinksRes{
+			Id:                   el["_id"].(primitive.ObjectID),
+			Title:                el["title"].(string),
+			Type:                 el["type"].(string),
+			DownloadTorrentLinks: dl,
+			RemoveTorrentLinks:   rl,
+		})
+	}
+
+	return finalRes, nil
+}
+
+func (m *TorrentRepository) UpdateTorrentAutoDownloaderPullDownloadLink(movieId string, torrentUrl string) error {
+	id, err := primitive.ObjectIDFromHex(movieId)
+	if err != nil {
+		return err
+	}
+
+	filter := bson.M{
+		"_id":                  id,
+		"downloadTorrentLinks": torrentUrl,
+	}
+
+	update := bson.M{
+		"$pull": bson.M{
+			"downloadTorrentLinks": torrentUrl,
+		},
+	}
+
+	opts := options.Update()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, err = m.mongodb.
+		Collection("movies").
+		UpdateOne(ctx, filter, update, opts)
+
+	return err
+}
+
+func (m *TorrentRepository) UpdateTorrentAutoDownloaderPullRemoveLink(movieType string, torrentUrl string) error {
+	isMovie := strings.Contains(movieType, "movie")
+	linkQuery := "seasons.episodes.torrentLinks.link"
+	updateField := "seasons.$.episodes.$[].torrentLinks.$[item].localLink"
+	updateField2 := "seasons.$.episodes.$[].torrentLinks.$[item].localLinkExpire"
+	if isMovie {
+		linkQuery = "qualities.torrentLinks.link"
+		updateField = "qualities.$[].torrentLinks.$[item].localLink"
+		updateField2 = "qualities.$[].torrentLinks.$[item].localLinkExpire"
+	}
+
+	filter := bson.M{
+		linkQuery: torrentUrl,
+	}
+
+	update := bson.M{
+		"$set": bson.M{
+			updateField:  "",
+			updateField2: 0,
+		},
+		"$pull": bson.M{
+			"downloadTorrentLinks": torrentUrl,
+		},
+	}
+
+	opts := options.Update().SetArrayFilters(options.ArrayFilters{
+		Filters: []interface{}{
+			bson.M{"item.link": torrentUrl},
+		},
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, err := m.mongodb.
+		Collection("movies").
+		UpdateOne(ctx, filter, update, opts)
+
+	return err
+}
+
+//------------------------------------------
+//------------------------------------------
+
+func bsonAToStringSlice(a bson.A) ([]string, error) {
+	result := make([]string, len(a))
+	for i, v := range a {
+		str, ok := v.(string)
+		if !ok {
+			return nil, fmt.Errorf("element at index %d is not a string", i)
+		}
+		result[i] = str
+	}
+	return result, nil
+}

@@ -13,6 +13,8 @@ definitions:
     type: object
   model.DownloadingFile:
     properties:
+      done:
+        type: boolean
       downloadedSize:
         type: integer
       error: {}

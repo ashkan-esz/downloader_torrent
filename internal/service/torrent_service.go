@@ -25,7 +25,8 @@ import (
 )
 
 type ITorrentService interface {
-	DownloadFile(movieId string, torrentUrl string) (*model.DownloadingFile, error)
+	DownloadQueueConsumer(wid int, queueItem QueueItem)
+	DownloadFile(movieId string, torrentUrl string, source EnqueueSource) (*model.DownloadingFile, error)
 	CancelDownload(fileName string) error
 	RemoveDownload(fileName string) error
 	GetTorrentStatus() *model.TorrentStatusRes
@@ -35,6 +36,8 @@ type ITorrentService interface {
 	UpdateLocalFiles(done <-chan bool)
 	CleanUp(done <-chan bool)
 	SyncFilesAndDb(done <-chan bool)
+	AutoDownloader(done <-chan bool)
+	HandleAutoDownloader() error
 	UpdateStats(done <-chan bool)
 	GetDiskSpaceUsage() (int64, error)
 	CleanUpSpace() error
@@ -68,6 +71,7 @@ type TorrentService struct {
 	tasks                    *model.Tasks
 	activeDownloadsCounts    int64
 	activeDownloadsCountsMux *sync.Mutex
+	downloadQueue            *DownloadQueue
 }
 
 var TorrentSvc *TorrentService
@@ -99,14 +103,29 @@ func NewTorrentService(torrentRepo repository.ITorrentRepository) *TorrentServic
 		tasks:                    &model.Tasks{},
 		activeDownloadsCounts:    0,
 		activeDownloadsCountsMux: &sync.Mutex{},
+		downloadQueue:            nil,
 	}
 
 	done := make(chan bool)
 	go service.UpdateStats(done)
+
+	for service.stats.Configs.TorrentDownloadConcurrencyLimit == 0 {
+		time.Sleep(time.Second)
+	}
+
+	count := int(service.stats.Configs.TorrentDownloadConcurrencyLimit)
+	downloadQueue := NewDownloadQueue("download_queue.json", count, count*100, 30*time.Second, 10)
+
+	downloadQueue.Start(service.DownloadQueueConsumer, 5*time.Second)
+	//todo : add checkDequeue func
+
+	service.downloadQueue = downloadQueue
+
 	go service.UpdateDownloadingFiles(done)
 	go service.UpdateLocalFiles(done)
 	go service.CleanUp(done)
 	go service.SyncFilesAndDb(done)
+	go service.AutoDownloader(done)
 
 	TorrentSvc = service
 
@@ -133,32 +152,105 @@ func (m *TorrentService) GetTorrentStatus() *model.TorrentStatusRes {
 //------------------------------------------
 //------------------------------------------
 
-func (m *TorrentService) DownloadFile(movieId string, torrentUrl string) (d *model.DownloadingFile, err error) {
+func (m *TorrentService) DownloadQueueConsumer(wid int, queueItem QueueItem) {
+	m.WaitForDownloadConcurrencyFree()
+	downloadFile, err := m.DownloadFile(queueItem.TitleId, queueItem.TorrentLink, queueItem.EnqueueSource)
+	if err != nil {
+		if errors.Is(err, model.ErrTorrentLinkNotFound) || errors.Is(err, model.ErrFileSizeExceeded) || errors.Is(err, model.ErrEmptyFile) {
+			_ = m.RemoveAutoDownloaderLink(queueItem)
+		}
+		if !errors.Is(err, model.ErrMaximumDiskUsageExceeded) && !errors.Is(err, model.ErrFileSizeExceeded) {
+			// don't save no-space-error
+			errorHandler.SaveError(err.Error(), err)
+		}
+		m.WaitForDownloadConcurrencyFree()
+		return
+	}
+
+	if downloadFile != nil {
+		//fmt.Println(downloadFile.Name, err)
+		//wait until download is done or got error
+		for !downloadFile.Done {
+			time.Sleep(1 * time.Second)
+		}
+		if downloadFile.Error != nil {
+			errorHandler.SaveError(downloadFile.Error.Error(), downloadFile.Error)
+			m.WaitForDownloadConcurrencyFree()
+			return
+		}
+	}
+
+	// doesn't need if downloaded successfully
+	//_ = m.RemoveAutoDownloaderLink(queueItem)
+
+	m.WaitForDownloadConcurrencyFree()
+}
+
+func (m *TorrentService) RemoveAutoDownloaderLink(queueItem QueueItem) error {
+	if queueItem.EnqueueSource == AutoDownloader {
+		err := m.torrentRepo.UpdateTorrentAutoDownloaderPullDownloadLink(queueItem.TitleId, queueItem.TorrentLink)
+		if err != nil {
+			errorHandler.SaveError(err.Error(), err)
+		}
+		return err
+	}
+	return nil
+}
+
+func (m *TorrentService) WaitForDownloadConcurrencyFree() {
+	for len(m.downloadingFiles) >= int(m.stats.Configs.TorrentDownloadConcurrencyLimit) {
+		time.Sleep(2 * time.Second)
+	}
+}
+
+//------------------------------------------
+//------------------------------------------
+
+func (m *TorrentService) DownloadFile(movieId string, torrentUrl string, source EnqueueSource) (d *model.DownloadingFile, err error) {
+	locked := false
+	defer func() {
+		if locked {
+			m.downloadingFilesMux.Unlock()
+		}
+		if r := recover(); r != nil {
+			// Convert the panic to an error
+			err = fmt.Errorf("recovered from panic: %v", r)
+			errorHandler.SaveError(err.Error(), err)
+		}
+	}()
+
 	if m.stats.Configs.TorrentDownloadDisabled {
 		return nil, model.ErrTorrentDownloadDisabled
 	}
 
 	if m.stats.RemainingSpaceMb < m.stats.Configs.DownloadSpaceThresholdMb && m.stats.Configs.DownloadSpaceThresholdMb > 0 {
-		return nil, errors.New("maximum disk usage exceeded")
+		return nil, model.ErrMaximumDiskUsageExceeded
 	}
 
 	checkResult, err := m.torrentRepo.CheckTorrentLinkExist(movieId, torrentUrl)
 	if err != nil {
 		return nil, err
 	}
+	if checkResult == nil {
+		return nil, model.ErrTorrentLinkNotFound
+	}
 
 	m.downloadingFilesMux.Lock()
+	locked = true
 	for i := range m.downloadingFiles {
 		if m.downloadingFiles[i].TorrentUrl == torrentUrl {
+			locked = false
 			m.downloadingFilesMux.Unlock()
-			return nil, errors.New("already downloading")
+			return nil, model.ErrAlreadyDownloading
 		}
 	}
 
-	if int64(len(m.downloadingFiles)) >= m.stats.Configs.TorrentDownloadConcurrencyLimit {
-		m.downloadingFilesMux.Unlock()
-		return nil, model.ErrTorrentDownloadConcurrencyLimit
-	}
+	// not needed, concurrency handled by queue-dequeue workers
+	//if int64(len(m.downloadingFiles)) >= m.stats.Configs.TorrentDownloadConcurrencyLimit {
+	//	locked = false
+	//	m.downloadingFilesMux.Unlock()
+	//	return nil, model.ErrTorrentDownloadConcurrencyLimit
+	//}
 
 	d = &model.DownloadingFile{
 		State:          "started",
@@ -173,8 +265,11 @@ func (m *TorrentService) DownloadFile(movieId string, torrentUrl string) (d *mod
 		TitleType:      checkResult.Type,
 		StartTime:      time.Now(),
 		Error:          nil,
+		Done:           false,
 	}
+
 	m.downloadingFiles = append(m.downloadingFiles, d)
+	locked = false
 	m.downloadingFilesMux.Unlock()
 
 	downloadDone := make(chan bool)
@@ -194,10 +289,14 @@ func (m *TorrentService) DownloadFile(movieId string, torrentUrl string) (d *mod
 				if d != nil {
 					d.Torrent.Drop()
 					d.Error = model.ErrTorrentDownloadTimeout
+					d.Done = true
 				}
 				return
 			case <-downloadDone:
 				//fmt.Println("Downloading file stopped/completed")
+				if d != nil {
+					d.Done = true
+				}
 				return
 			case <-ticker.C:
 				if d != nil && d.Torrent != nil {
@@ -210,6 +309,7 @@ func (m *TorrentService) DownloadFile(movieId string, torrentUrl string) (d *mod
 						//fmt.Println("No progress detected for 2 minute(s). Timing out.")
 						d.Torrent.Drop()
 						d.Error = model.ErrTorrentDownloadInactive
+						d.Done = true
 						return
 					}
 
@@ -224,6 +324,7 @@ func (m *TorrentService) DownloadFile(movieId string, torrentUrl string) (d *mod
 						expireTime := m.GetFileExpireTime(d.Name, nil).UnixMilli()
 						err = m.torrentRepo.SaveTorrentLocalLink(movieId, checkResult.Type, torrentUrl, localUrl, expireTime)
 
+						d.Done = true
 						return
 					}
 				}
@@ -237,7 +338,7 @@ func (m *TorrentService) DownloadFile(movieId string, torrentUrl string) (d *mod
 			if d != nil {
 				d.Error = err
 
-				if !errors.Is(err, model.ErrFileAlreadyExist) {
+				if !errors.Is(err, model.ErrFileAlreadyExist) && d.Name != "" {
 					_ = m.removeTorrentFile(d.Name, false)
 				}
 
@@ -271,35 +372,43 @@ func (m *TorrentService) DownloadFile(movieId string, torrentUrl string) (d *mod
 	d.Size = t.Info().Length
 	d.Torrent = t
 
-	//---------------------------------------------
-
-	for _, lf := range m.localFiles {
-		if lf.Name == d.Name {
-			return d, model.ErrFileAlreadyExist
-		}
+	err = m.CheckFileExistAndSize(d)
+	if err != nil {
+		return d, err
 	}
-
-	//---------------------------------------------
-	if d.Size == 0 {
-		return d, errors.New("File is empty")
-	}
-
-	if d.Size > m.stats.Configs.DownloadFileSizeLimitMb*1024*1024 && m.stats.Configs.DownloadFileSizeLimitMb > 0 {
-		m := fmt.Sprintf("File size exceeds the limit (%vmb)", m.stats.Configs.DownloadFileSizeLimitMb)
-		return d, errors.New(m)
-	}
-
-	if d.Size > (m.stats.RemainingSpaceMb-200)*1024*1024 && m.stats.RemainingSpaceMb > 0 {
-		m := fmt.Sprintf("Not Enough space left (%vmb/%vmb)", d.Size/(1024*1024), m.stats.RemainingSpaceMb-200)
-		return d, errors.New(m)
-	}
-	//---------------------------------------------
 
 	d.State = "downloading"
 	t.DownloadAll()
 
 	return d, err
 }
+
+func (m *TorrentService) CheckFileExistAndSize(d *model.DownloadingFile) error {
+	for _, lf := range m.localFiles {
+		if lf.Name == d.Name {
+			return model.ErrFileAlreadyExist
+		}
+	}
+
+	if d.Size == 0 {
+		return model.ErrEmptyFile
+	}
+
+	if d.Size > m.stats.Configs.DownloadFileSizeLimitMb*1024*1024 && m.stats.Configs.DownloadFileSizeLimitMb > 0 {
+		//m := fmt.Sprintf("File size exceeds the limit (%vmb)", m.stats.Configs.DownloadFileSizeLimitMb)
+		return model.ErrFileSizeExceeded
+	}
+
+	if d.Size > (m.stats.RemainingSpaceMb-200)*1024*1024 && m.stats.RemainingSpaceMb > 0 {
+		//m := fmt.Sprintf("Not Enough space left (%vmb/%vmb)", d.Size/(1024*1024), m.stats.RemainingSpaceMb-200)
+		return model.ErrNotEnoughSpace
+	}
+
+	return nil
+}
+
+//-----------------------------------------
+//-----------------------------------------
 
 func (m *TorrentService) CancelDownload(fileName string) error {
 	for i := range m.downloadingFiles {
@@ -351,7 +460,7 @@ func (m *TorrentService) RemoveDownload(fileName string) error {
 
 func (m *TorrentService) ExtendLocalFileExpireTime(filename string) (time.Time, error) {
 	if m.stats.Configs.TorrentFileExpireExtendHour == 0 {
-		return time.Time{}, errors.New("extending local files expire time is disabled")
+		return time.Time{}, model.ErrExtendLocalFileExpireIsDisabled
 	}
 
 	m.localFilesMux.Lock()
@@ -467,6 +576,69 @@ func (m *TorrentService) SyncFilesAndDb(done <-chan bool) {
 			_ = m.RemoveLocalFilesNotFoundInDb()
 		}
 	}
+}
+
+func (m *TorrentService) AutoDownloader(done <-chan bool) {
+	ticker := time.NewTicker(10 * time.Minute)
+	defer ticker.Stop()
+
+	time.Sleep(1 * time.Minute)
+	_ = m.HandleAutoDownloader()
+
+	for {
+		select {
+		case <-done:
+			//fmt.Println("Periodic task stopped")
+			return
+		case <-ticker.C:
+			_ = m.HandleAutoDownloader()
+		}
+	}
+}
+
+//-----------------------------------------
+//-----------------------------------------
+
+func (m *TorrentService) HandleAutoDownloader() error {
+	docs, err := m.torrentRepo.GetTorrentAutoDownloaderLinks()
+	if err != nil {
+		errorHandler.SaveError(err.Error(), err)
+		return err
+	}
+
+	removedCounter := 0
+	for _, doc := range docs {
+		for _, removeLink := range doc.RemoveTorrentLinks {
+			_ = m.torrentRepo.UpdateTorrentAutoDownloaderPullRemoveLink(doc.Type, removeLink)
+			removedCounter++
+		}
+	}
+
+	enqueueCounter := 0
+	for _, doc := range docs {
+		for _, downloadLink := range doc.DownloadTorrentLinks {
+			qItem := QueueItem{
+				TitleId:       doc.Id.Hex(),
+				TitleType:     doc.Type,
+				TorrentLink:   downloadLink,
+				EnqueueTime:   time.Now(),
+				EnqueueSource: AutoDownloader,
+				UserInfo:      nil,
+			}
+			//todo : check queue before insert
+			enqueueCounter++
+			_, err = m.downloadQueue.Enqueue(qItem)
+			if errors.Is(err, ErrOverflow) {
+				break
+			}
+		}
+	}
+
+	if removedCounter > 0 {
+		_ = m.RemoveLocalFilesNotFoundInDb()
+	}
+
+	return nil
 }
 
 //-----------------------------------------
@@ -1021,7 +1193,7 @@ func (m *TorrentService) IncrementFileDownloadCount(filename string) error {
 			return nil
 		}
 	}
-	return errors.New("file not found")
+	return model.ErrFileNotFound
 }
 
 func (m *TorrentService) DecrementFileDownloadCount(filename string) {

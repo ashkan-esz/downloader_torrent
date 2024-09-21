@@ -463,6 +463,9 @@ const docTemplate = `{
         "model.DownloadingFile": {
             "type": "object",
             "properties": {
+                "done": {
+                    "type": "boolean"
+                },
                 "downloadedSize": {
                     "type": "integer"
                 },

@@ -11,8 +11,9 @@ import (
 )
 
 type IDownloadQueue interface {
-	Enqueue(fileInfo FileInfo) (int, error)
-	Dequeue() (FileInfo, bool)
+	Enqueue(queueItem QueueItem) (int, error)
+	Dequeue() (QueueItem, bool)
+	GetIndex(torrentLink string) (int, bool)
 	periodicSaveQueue()
 	checkSave()
 	saveQueue()
@@ -23,7 +24,7 @@ type IDownloadQueue interface {
 }
 
 type DownloadQueue struct {
-	queue             []FileInfo
+	queue             []QueueItem
 	mutex             sync.Mutex
 	queueFile         string
 	capacity          int
@@ -38,7 +39,7 @@ type DownloadQueue struct {
 
 func NewDownloadQueue(queueFile string, workers int, capacity int, saveQueueInterval time.Duration, batchSize int) *DownloadQueue {
 	dq := &DownloadQueue{
-		queue:             make([]FileInfo, 0, capacity),
+		queue:             make([]QueueItem, 0, capacity),
 		queueFile:         queueFile,
 		capacity:          capacity,
 		workers:           workers,
@@ -59,19 +60,38 @@ func NewDownloadQueue(queueFile string, workers int, capacity int, saveQueueInte
 //---------------------------------------
 //---------------------------------------
 
-type ConsumerFunc func(wid int, fileInfo FileInfo)
+type ConsumerFunc func(wid int, queueItem QueueItem)
 
-type FileInfo struct {
-	URL      string
-	FileName string
+type QueueItem struct {
+	TitleId       string        `json:"titleId"`
+	TitleType     string        `json:"titleType"`
+	TorrentLink   string        `json:"torrentLink"`
+	EnqueueTime   time.Time     `json:"enqueueTime"`
+	EnqueueSource EnqueueSource `json:"enqueueSource"`
+	UserInfo      *UserInfo     `json:"userInfo"`
 }
+
+type UserInfo struct {
+	UserId int64 `json:"userId"`
+	//todo : more user data
+	//todo : bot data
+}
+
+type EnqueueSource string
+
+const (
+	Admin          EnqueueSource = "admin"
+	User           EnqueueSource = "user"
+	UserBot        EnqueueSource = "user-bot"
+	AutoDownloader EnqueueSource = "auto-downloader"
+)
 
 var ErrOverflow = errors.New("overflow")
 
 //---------------------------------------
 //---------------------------------------
 
-func (dq *DownloadQueue) Enqueue(fileInfo FileInfo) (int, error) {
+func (dq *DownloadQueue) Enqueue(queueItem QueueItem) (int, error) {
 	dq.mutex.Lock()
 	defer dq.mutex.Unlock()
 
@@ -79,27 +99,27 @@ func (dq *DownloadQueue) Enqueue(fileInfo FileInfo) (int, error) {
 		return -1, ErrOverflow
 	}
 
-	dq.queue = append(dq.queue, fileInfo)
+	dq.queue = append(dq.queue, queueItem)
 
 	dq.checkSave()
 
 	return len(dq.queue) - 1, nil
 }
 
-func (dq *DownloadQueue) Dequeue() (FileInfo, bool) {
+func (dq *DownloadQueue) Dequeue() (QueueItem, bool) {
 	dq.mutex.Lock()
 	defer dq.mutex.Unlock()
 
 	if len(dq.queue) == 0 {
-		return FileInfo{}, false
+		return QueueItem{}, false
 	}
 
-	fileInfo := dq.queue[0]
+	queueItem := dq.queue[0]
 	dq.queue = dq.queue[1:]
 
 	dq.checkSave()
 
-	return fileInfo, true
+	return queueItem, true
 }
 
 //---------------------------------------
@@ -139,12 +159,12 @@ func (dq *DownloadQueue) worker(wid int, consumerFunc ConsumerFunc, emptyQueueSl
 //---------------------------------------
 //---------------------------------------
 
-func (dq *DownloadQueue) GetIndex(url string) (int, bool) {
+func (dq *DownloadQueue) GetIndex(torrentLink string) (int, bool) {
 	dq.mutex.Lock()
 	defer dq.mutex.Unlock()
 
 	for i, info := range dq.queue {
-		if info.URL == url {
+		if info.TorrentLink == torrentLink {
 			return i, true
 		}
 	}

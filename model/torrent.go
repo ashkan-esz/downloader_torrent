@@ -29,6 +29,7 @@ type DownloadingFile struct {
 	TitleType      string           `json:"titleType"`
 	StartTime      time.Time        `json:"startTime"`
 	Error          error            `json:"error"`
+	Done           bool             `json:"done"`
 }
 
 type LocalFile struct {
@@ -85,6 +86,7 @@ type Tasks struct {
 	DiskSpaceCleaner            string `json:"diskSpaceCleaner"`
 }
 
+var ErrTorrentLinkNotFound = errors.New("torrent link not found")
 var ErrFileNotFound = errors.New("file not found")
 var ErrFileAlreadyExist = errors.New("file already exist")
 var ErrTorrentDownloadDisabled = errors.New("torrent downloader is disabled")
@@ -92,3 +94,9 @@ var ErrTorrentFilesServingDisabled = errors.New("serving torrent files is disabl
 var ErrTorrentDownloadTimeout = errors.New("torrent download timeout")
 var ErrTorrentDownloadInactive = errors.New("torrent download inactivity")
 var ErrTorrentDownloadConcurrencyLimit = errors.New("torrent download concurrency exceed, try later")
+var ErrEmptyFile = errors.New("file is empty")
+var ErrFileSizeExceeded = errors.New("file size exceeds the limit")
+var ErrNotEnoughSpace = errors.New("not Enough space left")
+var ErrAlreadyDownloading = errors.New("already downloading")
+var ErrMaximumDiskUsageExceeded = errors.New("maximum disk usage exceeded")
+var ErrExtendLocalFileExpireIsDisabled = errors.New("extending local files expire time is disabled")

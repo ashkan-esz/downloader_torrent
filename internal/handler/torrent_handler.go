@@ -117,7 +117,7 @@ func (m *TorrentHandler) DownloadTorrent(c *fiber.Ctx) error {
 	}
 
 	//jwtUserData := c.Locals("jwtUserData").(*util.MyJwtClaims)
-	res, err := m.torrentService.DownloadFile(movieId, link)
+	res, err := m.torrentService.DownloadFile(movieId, link, service.Admin)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return response.ResponseError(c, "Torrent link not found in db", fiber.StatusNotFound)
