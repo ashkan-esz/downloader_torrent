@@ -105,6 +105,8 @@ definitions:
     type: object
   model.Tasks:
     properties:
+      autoDownloader:
+        type: string
       dbsInvalidLocalLinksRemover:
         type: string
       diskSpaceCleaner:

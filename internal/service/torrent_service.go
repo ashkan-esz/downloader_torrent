@@ -607,14 +607,15 @@ func (m *TorrentService) HandleAutoDownloader() error {
 	}
 
 	removedCounter := 0
+	enqueueCounter := 0
 	for _, doc := range docs {
 		for _, removeLink := range doc.RemoveTorrentLinks {
+			m.tasks.AutoDownloader = fmt.Sprintf("handling: %v removed, %v enqueued", removedCounter, enqueueCounter)
 			_ = m.torrentRepo.UpdateTorrentAutoDownloaderPullRemoveLink(doc.Type, removeLink)
 			removedCounter++
 		}
 	}
 
-	enqueueCounter := 0
 	for _, doc := range docs {
 		for _, downloadLink := range doc.DownloadTorrentLinks {
 			qItem := QueueItem{
@@ -627,12 +628,15 @@ func (m *TorrentService) HandleAutoDownloader() error {
 			}
 			//todo : check queue before insert
 			enqueueCounter++
+			m.tasks.AutoDownloader = fmt.Sprintf("handling: %v removed, %v enqueued", removedCounter, enqueueCounter)
 			_, err = m.downloadQueue.Enqueue(qItem)
 			if errors.Is(err, ErrOverflow) {
 				break
 			}
 		}
 	}
+
+	m.tasks.AutoDownloader = fmt.Sprintf("%v removed, %v enqueued", removedCounter, enqueueCounter)
 
 	if removedCounter > 0 {
 		_ = m.RemoveLocalFilesNotFoundInDb()

@@ -603,6 +603,9 @@ const docTemplate = `{
         "model.Tasks": {
             "type": "object",
             "properties": {
+                "autoDownloader": {
+                    "type": "string"
+                },
                 "dbsInvalidLocalLinksRemover": {
                     "type": "string"
                 },

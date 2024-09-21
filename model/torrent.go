@@ -84,6 +84,7 @@ type Tasks struct {
 	InCompleteDownloadsRemover  string `json:"inCompleteDownloadsRemover"`
 	OrphanMetaFilesRemover      string `json:"orphanMetaFilesRemover"`
 	DiskSpaceCleaner            string `json:"diskSpaceCleaner"`
+	AutoDownloader              string `json:"autoDownloader"`
 }
 
 var ErrTorrentLinkNotFound = errors.New("torrent link not found")
