@@ -1,6 +1,7 @@
 package service
 
 import (
+	"downloader_torrent/model"
 	errorHandler "downloader_torrent/pkg/error"
 	"encoding/json"
 	"errors"
@@ -21,6 +22,7 @@ type IDownloadQueue interface {
 	Start(consumerFunc ConsumerFunc, emptyQueueSleep time.Duration)
 	worker(wid int, consumerFunc ConsumerFunc, emptyQueueSleep time.Duration)
 	Close()
+	GetStats() *model.DownloadQueueStats
 }
 
 type DownloadQueue struct {
@@ -35,6 +37,7 @@ type DownloadQueue struct {
 	doneChan          chan bool
 	done              bool
 	wg                *sync.WaitGroup
+	enqueueCounter    int
 }
 
 func NewDownloadQueue(queueFile string, workers int, capacity int, saveQueueInterval time.Duration, batchSize int) *DownloadQueue {
@@ -53,8 +56,21 @@ func NewDownloadQueue(queueFile string, workers int, capacity int, saveQueueInte
 
 	dq.loadQueue()
 	go dq.periodicSaveQueue()
+	dq.enqueueCounter = 0
 
 	return dq
+}
+
+//---------------------------------------
+//---------------------------------------
+
+func (dq *DownloadQueue) GetStats() *model.DownloadQueueStats {
+	return &model.DownloadQueueStats{
+		Size:           len(dq.queue),
+		EnqueueCounter: dq.enqueueCounter,
+		Capacity:       dq.capacity,
+		Workers:        dq.workers,
+	}
 }
 
 //---------------------------------------
@@ -101,6 +117,7 @@ func (dq *DownloadQueue) Enqueue(queueItem QueueItem) (int, error) {
 
 	dq.queue = append(dq.queue, queueItem)
 
+	dq.enqueueCounter++
 	dq.checkSave()
 
 	return len(dq.queue) - 1, nil

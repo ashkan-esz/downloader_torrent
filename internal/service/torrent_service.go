@@ -146,6 +146,7 @@ func (m *TorrentService) GetTorrentStatus() *model.TorrentStatusRes {
 		Tasks:                 m.tasks,
 		ActiveDownloadsCounts: m.activeDownloadsCounts,
 		TorrentClientStats:    m.torrentClient.Stats(),
+		DownloadQueueStats:    m.downloadQueue.GetStats(),
 	}
 }
 

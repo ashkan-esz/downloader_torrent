@@ -11,6 +11,17 @@ definitions:
       size:
         type: integer
     type: object
+  model.DownloadQueueStats:
+    properties:
+      capacity:
+        type: integer
+      enqueueCounter:
+        type: integer
+      size:
+        type: integer
+      workers:
+        type: integer
+    type: object
   model.DownloadingFile:
     properties:
       done:
@@ -124,6 +135,8 @@ definitions:
     properties:
       activeDownloadsCounts:
         type: integer
+      downloadQueueStats:
+        $ref: '#/definitions/model.DownloadQueueStats'
       downloadingFiles:
         items:
           $ref: '#/definitions/model.DownloadingFile'

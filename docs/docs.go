@@ -460,6 +460,23 @@ const docTemplate = `{
                 }
             }
         },
+        "model.DownloadQueueStats": {
+            "type": "object",
+            "properties": {
+                "capacity": {
+                    "type": "integer"
+                },
+                "enqueueCounter": {
+                    "type": "integer"
+                },
+                "size": {
+                    "type": "integer"
+                },
+                "workers": {
+                    "type": "integer"
+                }
+            }
+        },
         "model.DownloadingFile": {
             "type": "object",
             "properties": {
@@ -631,6 +648,9 @@ const docTemplate = `{
             "properties": {
                 "activeDownloadsCounts": {
                     "type": "integer"
+                },
+                "downloadQueueStats": {
+                    "$ref": "#/definitions/model.DownloadQueueStats"
                 },
                 "downloadingFiles": {
                     "type": "array",

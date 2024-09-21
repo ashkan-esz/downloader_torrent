@@ -14,6 +14,14 @@ type TorrentStatusRes struct {
 	Tasks                 *Tasks              `json:"tasks"`
 	ActiveDownloadsCounts int64               `json:"activeDownloadsCounts"`
 	TorrentClientStats    torrent.ClientStats `json:"torrentClientStats" swaggerignore:"true"`
+	DownloadQueueStats    *DownloadQueueStats `json:"downloadQueueStats"`
+}
+
+type DownloadQueueStats struct {
+	Size           int `json:"size"`
+	EnqueueCounter int `json:"enqueueCounter"`
+	Capacity       int `json:"capacity"`
+	Workers        int `json:"workers"`
 }
 
 type DownloadingFile struct {
