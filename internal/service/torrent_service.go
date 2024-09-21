@@ -662,20 +662,22 @@ func (m *TorrentService) HandleAutoDownloader() error {
 
 	for _, doc := range docs {
 		for _, downloadLink := range doc.DownloadTorrentLinks {
-			qItem := QueueItem{
-				TitleId:       doc.Id.Hex(),
-				TitleType:     doc.Type,
-				TorrentLink:   downloadLink,
-				EnqueueTime:   time.Now(),
-				EnqueueSource: AutoDownloader,
-				UserInfo:      nil,
-			}
-			//todo : check queue before insert
-			enqueueCounter++
-			m.tasks.AutoDownloader = fmt.Sprintf("handling: %v removed, %v enqueued", removedCounter, enqueueCounter)
-			_, err = m.downloadQueue.Enqueue(qItem)
-			if errors.Is(err, ErrOverflow) {
-				break
+			_, exist := m.downloadQueue.GetIndex(downloadLink)
+			if !exist {
+				qItem := QueueItem{
+					TitleId:       doc.Id.Hex(),
+					TitleType:     doc.Type,
+					TorrentLink:   downloadLink,
+					EnqueueTime:   time.Now(),
+					EnqueueSource: AutoDownloader,
+					UserInfo:      nil,
+				}
+				enqueueCounter++
+				m.tasks.AutoDownloader = fmt.Sprintf("handling: %v removed, %v enqueued", removedCounter, enqueueCounter)
+				_, err = m.downloadQueue.Enqueue(qItem)
+				if errors.Is(err, ErrOverflow) {
+					break
+				}
 			}
 		}
 	}
