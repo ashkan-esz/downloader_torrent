@@ -184,6 +184,8 @@ func (m *TorrentService) DownloadQueueConsumer(wid int, queueItem QueueItem) {
 	// doesn't need if downloaded successfully
 	//_ = m.RemoveAutoDownloaderLink(queueItem)
 
+	_ = m.HandleExpireTimeOfAutoDownloaded(downloadFile)
+
 	m.WaitForDownloadConcurrencyFree()
 }
 
@@ -202,6 +204,47 @@ func (m *TorrentService) WaitForDownloadConcurrencyFree() {
 	for len(m.downloadingFiles) >= int(m.stats.Configs.TorrentDownloadConcurrencyLimit) {
 		time.Sleep(2 * time.Second)
 	}
+}
+
+func (m *TorrentService) HandleExpireTimeOfAutoDownloaded(file *model.DownloadingFile) error {
+	defer func() {
+		if r := recover(); r != nil {
+			// Convert the panic to an error
+			fmt.Printf("recovered from panic: %v\n", r)
+		}
+	}()
+
+	diffHour := m.stats.Configs.TorrentFilesExpireHour - configs.GetDbConfigs().DefaultTorrentDownloaderConfig.TorrentFilesExpireHour
+
+	if diffHour == 0 {
+		return nil
+	}
+
+	var downloadTime time.Time
+	t, err := times.Stat(m.downloadDir + file.Name)
+	if err == nil {
+		downloadTime = t.BirthTime()
+		if downloadTime.Before(t.AccessTime()) {
+			downloadTime = t.AccessTime()
+		}
+	}
+	if downloadTime.IsZero() {
+		fileInfo, err := os.Stat(m.downloadDir + file.Name)
+		if err == nil {
+			downloadTime = fileInfo.ModTime()
+		} else {
+			downloadTime = time.Now()
+		}
+	}
+
+	newAccessTime := downloadTime.Add(time.Duration(diffHour) * time.Hour)
+
+	err = os.Chtimes(m.downloadDir+file.Name, newAccessTime, newAccessTime)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 //------------------------------------------

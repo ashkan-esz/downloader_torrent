@@ -14,32 +14,46 @@ import (
 )
 
 type DbConfigData struct {
-	Id                                  primitive.ObjectID `bson:"_id"`
-	Title                               string             `bson:"title"`
-	CorsAllowedOrigins                  []string           `bson:"corsAllowedOrigins"`
-	DisableTestUserRequests             bool               `bson:"disableTestUserRequests"`
-	DisableCrawlerForDuration           int                `bson:"disableCrawlerForDuration"`
-	DisableCrawlerStart                 int                `bson:"disableCrawlerStart"`
-	CrawlerDisabled                     bool               `bson:"crawlerDisabled"`
-	DisableCrawler                      bool               `bson:"disableCrawler"`
-	DevelopmentFaze                     bool               `bson:"developmentFaze"`
-	DevelopmentFazeStart                int                `bson:"developmentFazeStart"`
-	MediaFileSizeLimit                  int64              `bson:"mediaFileSizeLimit"`
-	ProfileFileSizeLimit                int64              `bson:"profileFileSizeLimit"`
-	ProfileImageCountLimit              int64              `bson:"profileImageCountLimit"`
-	MediaFileExtensionLimit             string             `bson:"mediaFileExtensionLimit"`
-	ProfileImageExtensionLimit          string             `bson:"profileImageExtensionLimit"`
-	TorrentDownloadMaxSpaceSize         int64              `bson:"torrentDownloadMaxSpaceSize"`
-	TorrentDownloadMaxFileSize          int64              `bson:"torrentDownloadMaxFileSize"`
-	TorrentDownloadSpaceThresholdSize   int64              `bson:"torrentDownloadSpaceThresholdSize"`
-	TorrentFilesExpireHour              int64              `bson:"torrentFilesExpireHour"`
-	TorrentDownloadConcurrencyLimit     int64              `bson:"torrentDownloadConcurrencyLimit"`
-	TorrentFilesServingConcurrencyLimit int64              `bson:"torrentFilesServingConcurrencyLimit"`
-	TorrentDownloadTimeoutMin           int64              `bson:"torrentDownloadTimeoutMin"`
-	TorrentFilesServingDisabled         bool               `bson:"torrentFilesServingDisabled"`
-	TorrentDownloadDisabled             bool               `bson:"torrentDownloadDisabled"`
-	TorrentFileExpireDelayFactor        float32            `bson:"torrentFileExpireDelayFactor"`
-	TorrentFileExpireExtendHour         int64              `bson:"torrentFileExpireExtendHour"`
+	Id                                  primitive.ObjectID              `bson:"_id"`
+	Title                               string                          `bson:"title"`
+	CorsAllowedOrigins                  []string                        `bson:"corsAllowedOrigins"`
+	DisableTestUserRequests             bool                            `bson:"disableTestUserRequests"`
+	DisableCrawlerForDuration           int                             `bson:"disableCrawlerForDuration"`
+	DisableCrawlerStart                 int                             `bson:"disableCrawlerStart"`
+	CrawlerDisabled                     bool                            `bson:"crawlerDisabled"`
+	DisableCrawler                      bool                            `bson:"disableCrawler"`
+	DevelopmentFaze                     bool                            `bson:"developmentFaze"`
+	DevelopmentFazeStart                int                             `bson:"developmentFazeStart"`
+	MediaFileSizeLimit                  int64                           `bson:"mediaFileSizeLimit"`
+	ProfileFileSizeLimit                int64                           `bson:"profileFileSizeLimit"`
+	ProfileImageCountLimit              int64                           `bson:"profileImageCountLimit"`
+	MediaFileExtensionLimit             string                          `bson:"mediaFileExtensionLimit"`
+	ProfileImageExtensionLimit          string                          `bson:"profileImageExtensionLimit"`
+	TorrentDownloadMaxSpaceSize         int64                           `bson:"torrentDownloadMaxSpaceSize"`
+	TorrentDownloadMaxFileSize          int64                           `bson:"torrentDownloadMaxFileSize"`
+	TorrentDownloadSpaceThresholdSize   int64                           `bson:"torrentDownloadSpaceThresholdSize"`
+	TorrentFilesExpireHour              int64                           `bson:"torrentFilesExpireHour"`
+	TorrentDownloadConcurrencyLimit     int64                           `bson:"torrentDownloadConcurrencyLimit"`
+	TorrentFilesServingConcurrencyLimit int64                           `bson:"torrentFilesServingConcurrencyLimit"`
+	TorrentDownloadTimeoutMin           int64                           `bson:"torrentDownloadTimeoutMin"`
+	TorrentFilesServingDisabled         bool                            `bson:"torrentFilesServingDisabled"`
+	TorrentDownloadDisabled             bool                            `bson:"torrentDownloadDisabled"`
+	TorrentFileExpireDelayFactor        float32                         `bson:"torrentFileExpireDelayFactor"`
+	TorrentFileExpireExtendHour         int64                           `bson:"torrentFileExpireExtendHour"`
+	DefaultTorrentDownloaderConfig      *DefaultTorrentDownloaderConfig `bson:"defaultTorrentDownloaderConfig"`
+}
+
+type DefaultTorrentDownloaderConfig struct {
+	Disabled                string  `bson:"disabled"`
+	Status                  string  `bson:"status"`
+	MinImdbScore            float64 `bson:"minImdbScore"`
+	MinMalScore             float64 `bson:"minMalScore"`
+	NewEpisodeQualities     string  `bson:"newEpisodeQualities"`
+	MovieQualities          string  `bson:"movieQualities"`
+	TorrentFilesExpireHour  int64   `bson:"torrentFilesExpireHour"`
+	BypassIfHasDownloadLink bool    `bson:"bypassIfHasDownloadLink"`
+	NewEpisodeLinkLimit     int     `bson:"newEpisodeLinkLimit"`
+	MovieLinkLimit          int     `bson:"movieLinkLimit"`
 }
 
 var rwm sync.RWMutex
