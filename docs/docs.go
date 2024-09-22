@@ -466,6 +466,9 @@ const docTemplate = `{
                 "capacity": {
                     "type": "integer"
                 },
+                "dequeueWorkersSleep": {
+                    "type": "boolean"
+                },
                 "enqueueCounter": {
                     "type": "integer"
                 },

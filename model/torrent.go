@@ -18,10 +18,11 @@ type TorrentStatusRes struct {
 }
 
 type DownloadQueueStats struct {
-	Size           int `json:"size"`
-	EnqueueCounter int `json:"enqueueCounter"`
-	Capacity       int `json:"capacity"`
-	Workers        int `json:"workers"`
+	Size                int  `json:"size"`
+	EnqueueCounter      int  `json:"enqueueCounter"`
+	Capacity            int  `json:"capacity"`
+	Workers             int  `json:"workers"`
+	DequeueWorkersSleep bool `json:"dequeueWorkersSleep"`
 }
 
 type DownloadingFile struct {

@@ -19,25 +19,26 @@ type IDownloadQueue interface {
 	checkSave()
 	saveQueue()
 	loadQueue()
-	Start(consumerFunc ConsumerFunc, emptyQueueSleep time.Duration)
-	worker(wid int, consumerFunc ConsumerFunc, emptyQueueSleep time.Duration)
+	Start(consumerDequeueCheckFunc ConsumerDequeueCheckFunc, consumerFunc ConsumerFunc, emptyQueueSleep time.Duration)
+	worker(wid int, consumerDequeueCheckFunc ConsumerDequeueCheckFunc, consumerFunc ConsumerFunc, emptyQueueSleep time.Duration)
 	Close()
 	GetStats() *model.DownloadQueueStats
 }
 
 type DownloadQueue struct {
-	queue             []QueueItem
-	mutex             sync.Mutex
-	queueFile         string
-	capacity          int
-	workers           int
-	saveQueueInterval time.Duration
-	batchSize         int
-	operationCount    int
-	doneChan          chan bool
-	done              bool
-	wg                *sync.WaitGroup
-	enqueueCounter    int
+	queue               []QueueItem
+	mutex               sync.Mutex
+	queueFile           string
+	capacity            int
+	workers             int
+	saveQueueInterval   time.Duration
+	batchSize           int
+	operationCount      int
+	doneChan            chan bool
+	done                bool
+	wg                  *sync.WaitGroup
+	enqueueCounter      int
+	dequeueWorkersSleep bool
 }
 
 func NewDownloadQueue(queueFile string, workers int, capacity int, saveQueueInterval time.Duration, batchSize int) *DownloadQueue {
@@ -66,10 +67,11 @@ func NewDownloadQueue(queueFile string, workers int, capacity int, saveQueueInte
 
 func (dq *DownloadQueue) GetStats() *model.DownloadQueueStats {
 	return &model.DownloadQueueStats{
-		Size:           len(dq.queue),
-		EnqueueCounter: dq.enqueueCounter,
-		Capacity:       dq.capacity,
-		Workers:        dq.workers,
+		Size:                len(dq.queue),
+		EnqueueCounter:      dq.enqueueCounter,
+		Capacity:            dq.capacity,
+		Workers:             dq.workers,
+		DequeueWorkersSleep: dq.dequeueWorkersSleep,
 	}
 }
 
@@ -77,6 +79,7 @@ func (dq *DownloadQueue) GetStats() *model.DownloadQueueStats {
 //---------------------------------------
 
 type ConsumerFunc func(wid int, queueItem QueueItem)
+type ConsumerDequeueCheckFunc func(wid int) bool
 
 type QueueItem struct {
 	TitleId       string        `json:"titleId"`
@@ -142,14 +145,14 @@ func (dq *DownloadQueue) Dequeue() (QueueItem, bool) {
 //---------------------------------------
 //---------------------------------------
 
-func (dq *DownloadQueue) Start(consumerFunc ConsumerFunc, emptyQueueSleep time.Duration) {
+func (dq *DownloadQueue) Start(consumerDequeueCheckFunc ConsumerDequeueCheckFunc, consumerFunc ConsumerFunc, emptyQueueSleep time.Duration) {
 	for i := 0; i < dq.workers; i++ {
 		dq.wg.Add(1)
-		go dq.worker(i, consumerFunc, emptyQueueSleep)
+		go dq.worker(i, consumerDequeueCheckFunc, consumerFunc, emptyQueueSleep)
 	}
 }
 
-func (dq *DownloadQueue) worker(wid int, consumerFunc ConsumerFunc, emptyQueueSleep time.Duration) {
+func (dq *DownloadQueue) worker(wid int, consumerDequeueCheckFunc ConsumerDequeueCheckFunc, consumerFunc ConsumerFunc, emptyQueueSleep time.Duration) {
 	defer dq.wg.Done()
 
 	for {
@@ -157,6 +160,13 @@ func (dq *DownloadQueue) worker(wid int, consumerFunc ConsumerFunc, emptyQueueSl
 			//fmt.Println("consumer closed,done ", wid)
 			return
 		}
+
+		if !consumerDequeueCheckFunc(wid) {
+			dq.dequeueWorkersSleep = true
+			time.Sleep(10 * time.Second)
+			continue
+		}
+		dq.dequeueWorkersSleep = false
 
 		item, exist := dq.Dequeue()
 

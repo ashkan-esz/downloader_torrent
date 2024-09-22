@@ -25,6 +25,7 @@ import (
 )
 
 type ITorrentService interface {
+	DownloadQueueDequeueCheck(wid int) bool
 	DownloadQueueConsumer(wid int, queueItem QueueItem)
 	DownloadFile(movieId string, torrentUrl string, source EnqueueSource) (*model.DownloadingFile, error)
 	CancelDownload(fileName string) error
@@ -116,8 +117,7 @@ func NewTorrentService(torrentRepo repository.ITorrentRepository) *TorrentServic
 	count := int(service.stats.Configs.TorrentDownloadConcurrencyLimit)
 	downloadQueue := NewDownloadQueue("download_queue.json", count, count*100, 30*time.Second, 10)
 
-	downloadQueue.Start(service.DownloadQueueConsumer, 5*time.Second)
-	//todo : add checkDequeue func
+	downloadQueue.Start(service.DownloadQueueDequeueCheck, service.DownloadQueueConsumer, 5*time.Second)
 
 	service.downloadQueue = downloadQueue
 
@@ -153,14 +153,32 @@ func (m *TorrentService) GetTorrentStatus() *model.TorrentStatusRes {
 //------------------------------------------
 //------------------------------------------
 
+func (m *TorrentService) DownloadQueueDequeueCheck(wid int) bool {
+	if m.stats.Configs.TorrentDownloadDisabled {
+		return false
+	}
+	if m.stats.RemainingSpaceMb < m.stats.Configs.DownloadSpaceThresholdMb && m.stats.Configs.DownloadSpaceThresholdMb > 0 {
+		return false
+	}
+
+	return true
+}
+
 func (m *TorrentService) DownloadQueueConsumer(wid int, queueItem QueueItem) {
 	m.WaitForDownloadConcurrencyFree()
 	downloadFile, err := m.DownloadFile(queueItem.TitleId, queueItem.TorrentLink, queueItem.EnqueueSource)
 	if err != nil {
-		if errors.Is(err, model.ErrTorrentLinkNotFound) || errors.Is(err, model.ErrFileSizeExceeded) || errors.Is(err, model.ErrEmptyFile) {
+		if errors.Is(err, model.ErrTorrentLinkNotFound) ||
+			errors.Is(err, model.ErrFileSizeExceeded) ||
+			errors.Is(err, model.ErrEmptyFile) ||
+			errors.Is(err, model.ErrTorrentDownloadInactive) ||
+			errors.Is(err, model.ErrTorrentDownloadTimeout) {
 			_ = m.RemoveAutoDownloaderLink(queueItem)
 		}
-		if !errors.Is(err, model.ErrMaximumDiskUsageExceeded) && !errors.Is(err, model.ErrFileSizeExceeded) {
+		if !errors.Is(err, model.ErrMaximumDiskUsageExceeded) &&
+			!errors.Is(err, model.ErrFileSizeExceeded) &&
+			!errors.Is(err, model.ErrAlreadyDownloading) &&
+			!errors.Is(err, model.ErrFileAlreadyExist) {
 			// don't save no-space-error
 			errorHandler.SaveError(err.Error(), err)
 		}
@@ -627,6 +645,7 @@ func (m *TorrentService) AutoDownloader(done <-chan bool) {
 	defer ticker.Stop()
 
 	time.Sleep(1 * time.Minute)
+	//time.Sleep(5 * time.Second)
 	_ = m.HandleAutoDownloader()
 
 	for {
