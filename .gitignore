@@ -2,3 +2,4 @@
 .env
 cmd/test.go
 downloads
+download_queue.json
