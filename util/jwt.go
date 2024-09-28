@@ -4,15 +4,15 @@ import (
 	"downloader_torrent/configs"
 	"fmt"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type MyJwtClaims struct {
-	UserId      int64  `json:"userId"`
-	Username    string `json:"username"`
-	Role        string `json:"role"`
-	GeneratedAt int64  `json:"generatedAt"`
-	ExpiresAt   int64  `json:"expiresAt"`
+	UserId      int64   `json:"userId"`
+	Username    string  `json:"username"`
+	RoleIds     []int64 `json:"roleIds"`
+	GeneratedAt int64   `json:"generatedAt"`
+	ExpiresAt   int64   `json:"expiresAt"`
 	jwt.RegisteredClaims
 }
 

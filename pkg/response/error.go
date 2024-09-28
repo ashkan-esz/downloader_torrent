@@ -47,5 +47,4 @@ const (
 	//----------------------
 	BotIsDisabled = "This bot is disabled"
 	//----------------------
-	AdminAndDevOnly = "Forbidden, ([admin, dev]) roles only"
 )

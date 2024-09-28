@@ -34,7 +34,7 @@ To run this project, you will need to add the following environment variables to
 | **`MAIN_SERVER_ADDRESS`**              | the url of the downloader_api (main server)                                              | `true`   |               |
 | **`DOMAIN`**                           | base domain, used for cookies domain and subdomain                                       | `true`   |               |
 
->**NOTE: check [configs schema](https://github.com/ashkan-esz/downloader_api/blob/master/readme/CONFIGS.README.md) for other configs that read from db.**
+>**NOTE: check [configs schema](https://github.com/ashkan-esz/downloader_api/blob/master/docs/CONFIGS.README.md) for other configs that read from db.**
 
 ## Future updates
 

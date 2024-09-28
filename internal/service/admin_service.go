@@ -11,11 +11,13 @@ type IAdminService interface {
 }
 
 type AdminService struct {
+	UserRepo  repository.IUserRepository
 	AdminRepo repository.IAdminRepository
 }
 
-func NewAdminService(AdminRepo repository.IAdminRepository) *AdminService {
+func NewAdminService(UserRepo repository.IUserRepository, AdminRepo repository.IAdminRepository) *AdminService {
 	service := &AdminService{
+		UserRepo:  UserRepo,
 		AdminRepo: AdminRepo,
 	}
 
