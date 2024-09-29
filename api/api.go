@@ -6,6 +6,7 @@ import (
 	"downloader_torrent/configs"
 	_ "downloader_torrent/docs"
 	"downloader_torrent/internal/handler"
+	"downloader_torrent/internal/repository"
 	services "downloader_torrent/internal/service"
 	"downloader_torrent/pkg/response"
 	"errors"
@@ -27,7 +28,15 @@ import (
 
 var router *fiber.App
 
-func InitRouter(torrentHandler *handler.TorrentHandler, streamHandler *handler.StreamHandler, adminHandler *handler.AdminHandler) {
+type Handlers struct {
+	TorrentHandler *handler.TorrentHandler
+	StreamHandler  *handler.StreamHandler
+	UserHandler    *handler.UserHandler
+	AdminHandler   *handler.AdminHandler
+	UserRepo       *repository.UserRepository
+}
+
+func InitRouter(handlers *Handlers) {
 	var defaultErrorHandler = func(c *fiber.Ctx, err error) error {
 		// Status code defaults to 500
 		code := fiber.StatusInternalServerError
@@ -113,20 +122,30 @@ func InitRouter(torrentHandler *handler.TorrentHandler, streamHandler *handler.S
 	//}))
 
 	// This allows clients to request specific parts of a file, which is useful for resumable downloads or streaming media.
-	router.Get("/partial_download/:filename", torrentHandler.ServeLocalFile)
+	router.Get("/partial_download/:filename", handlers.TorrentHandler.ServeLocalFile)
 
 	torrentRoutes := router.Group("v1/torrent")
 	{
-		torrentRoutes.Put("/download/:movieId", middleware.AuthMiddleware, torrentHandler.DownloadTorrent)
-		torrentRoutes.Put("/cancel/:filename", middleware.AuthMiddleware, torrentHandler.CancelDownload)
-		torrentRoutes.Delete("/remove/:filename", middleware.AuthMiddleware, torrentHandler.RemoveDownload)
-		torrentRoutes.Put("/extend_expire_time/:filename", middleware.AuthMiddleware, torrentHandler.ExtendLocalFileExpireTime)
-		torrentRoutes.Get("/status", middleware.AuthMiddleware, torrentHandler.TorrentStatus)
+		torrentRoutes.Put("/download/:movieId", middleware.AuthMiddleware,
+			middleware.CheckUserPermission(handlers.UserRepo, "torrent_leach"),
+			handlers.TorrentHandler.DownloadTorrent)
+		torrentRoutes.Put("/cancel/:filename", middleware.AuthMiddleware,
+			middleware.CheckUserPermission(handlers.UserRepo, "admin_manage_torrent"),
+			handlers.TorrentHandler.CancelDownload)
+		torrentRoutes.Delete("/remove/:filename", middleware.AuthMiddleware,
+			middleware.CheckUserPermission(handlers.UserRepo, "admin_manage_torrent"),
+			handlers.TorrentHandler.RemoveDownload)
+		torrentRoutes.Put("/extend_expire_time/:filename", middleware.AuthMiddleware,
+			middleware.CheckUserPermission(handlers.UserRepo, "admin_manage_torrent"),
+			handlers.TorrentHandler.ExtendLocalFileExpireTime)
+		torrentRoutes.Get("/status", middleware.AuthMiddleware,
+			middleware.CheckUserPermission(handlers.UserRepo, "admin_get_server_status"),
+			handlers.TorrentHandler.TorrentStatus)
 	}
 
 	streamRoutes := router.Group("v1/stream")
 	{
-		streamRoutes.Get("/status", middleware.AuthMiddleware, streamHandler.StreamStatus)
+		streamRoutes.Get("/status", middleware.AuthMiddleware, handlers.StreamHandler.StreamStatus)
 		streamRoutes.Get("/:filename", func(c *fiber.Ctx) error {
 			filename := c.Params("filename", "")
 			noConversion := c.QueryBool("noConversion", false)
@@ -137,16 +156,18 @@ func InitRouter(torrentHandler *handler.TorrentHandler, streamHandler *handler.S
 				"Crf":          crf,
 			})
 		})
-		streamRoutes.Get("/play/:filename", streamHandler.StreamMedia)
+		streamRoutes.Get("/play/:filename", handlers.StreamHandler.StreamMedia)
 	}
 
 	adminRoutes := router.Group("v1/admin")
 	{
-		adminRoutes.Get("/fetch_configs", middleware.AuthMiddleware, adminHandler.FetchDbConfigs)
+		adminRoutes.Get("/fetch_configs", middleware.AuthMiddleware,
+			middleware.CheckUserPermission(handlers.UserRepo, "admin_get_server_status"),
+			handlers.AdminHandler.FetchDbConfigs)
 	}
 
-	router.Get("/", HealthCheck)
-	router.Get("/metrics", monitor.New())
+	router.Get("/", middleware.AuthMiddleware, middleware.CheckUserPermission(handlers.UserRepo, "admin_get_server_status"), HealthCheck)
+	router.Get("/metrics", middleware.AuthMiddleware, middleware.CheckUserPermission(handlers.UserRepo, "admin_get_server_status"), monitor.New())
 
 	router.Get("/swagger/*", swagger.HandlerDefault) // default
 }

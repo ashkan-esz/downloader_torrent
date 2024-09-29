@@ -1250,9 +1250,9 @@ func (m *TorrentService) IncrementFileDownloadCount(filename string) error {
 
 	for _, lf := range m.localFiles {
 		if lf.Name == filename {
-			go func() {
-				_ = m.torrentRepo.IncrementTorrentLinkDownload("serial", m.GetDownloadLink(filename))
-			}()
+			//go func() {
+			//	_ = m.torrentRepo.IncrementTorrentLinkDownload("serial", m.GetDownloadLink(filename))
+			//}()
 
 			td := atomic.AddInt64(lf.TotalDownloads, 1)
 			ad := atomic.AddInt64(lf.ActiveDownloads, 1)

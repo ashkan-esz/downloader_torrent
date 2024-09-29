@@ -1,0 +1,606 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRE_DATABASE_URL")
+}
+
+// ----------------------------------------------------------------
+
+model User {
+  userId                          Int                      @id @unique @default(autoincrement())
+  password                        String
+  publicName                      String
+  rawUsername                     String
+  registrationDate                DateTime                 @default(now())
+  lastSeenDate                    DateTime                 @default(now())
+  username                        String                   @unique
+  bio                             String                   @default("")
+  email                           String                   @unique
+  emailVerified                   Boolean                  @default(false)
+  emailVerifyToken                String                   @default("")
+  emailVerifyToken_expire         BigInt                   @default(0)
+  deleteAccountVerifyToken        String                   @default("")
+  deleteAccountVerifyToken_expire BigInt                   @default(0)
+  defaultProfile                  String                   @default("")
+  favoriteGenres                  String[]
+  ComputedStatsLastUpdate         BigInt                   @default(0)
+  mbtiType                        MbtiType?
+  profileImages                   ProfileImage[]
+  movieSettings                   MovieSettings?
+  notificationSettings            NotificationSettings?
+  downloadLinksSettings           DownloadLinksSettings?
+  activeSessions                  ActiveSession[]
+  computedFavoriteGenres          ComputedFavoriteGenres[]
+  likeDislikeStaff                LikeDislikeStaff[]
+  followStaff                     FollowStaff[]
+  favoriteCharacters              FavoriteCharacter[]
+  likeDislikeCharacter            LikeDislikeCharacter[]
+  watchListMovies                 WatchListMovie[]
+  watchedMovies                   WatchedMovie[]
+  followMovies                    FollowMovie[]
+  likeDislikeMovies               LikeDislikeMovie[]
+  followers                       Follow[]                 @relation("following")
+  following                       Follow[]                 @relation("followers")
+  WatchListGroup                  WatchListGroup[]
+  UserCollectionMovie             UserCollectionMovie[]
+  UserCollection                  UserCollection[]
+  createdRooms                    Room[]
+  receiverRooms                   Room[]                   @relation("receiverUser")
+  sendedMessages                  Message[]
+  receivedMessages                Message[]                @relation("receivedMessages")
+  userMessageRead                 UserMessageRead?
+  createdNotifications            Notification[]
+  receivedNotifications           Notification[]           @relation("receivedNotif")
+  bots                            UserBot[]
+  roles                           UserToRole[]
+}
+
+model Follow {
+  // User A follow B
+  // followerId follow followingId
+  followerId    Int
+  followingId   Int
+  addDate       DateTime
+  followerUser  User     @relation(fields: [followerId], references: [userId], onDelete: Cascade, onUpdate: Cascade, name: "followers")
+  followingUser User     @relation(fields: [followingId], references: [userId], onDelete: Cascade, onUpdate: Cascade, name: "following")
+
+  @@id([followerId, followingId])
+}
+
+model ProfileImage {
+  addDate      DateTime
+  originalSize Int
+  size         Int
+  thumbnail    String
+  blurHash     String
+  url          String   @id @unique
+  userId       Int
+  user         User     @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+}
+
+model ActiveSession {
+  deviceId     String
+  appName      String
+  appVersion   String
+  deviceModel  String
+  deviceOs     String
+  notifToken   String   @default("")
+  ipLocation   String
+  loginDate    DateTime @default(now())
+  lastUseDate  DateTime @default(now())
+  refreshToken String   @unique
+  userId       Int
+  user         User     @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([userId, deviceId])
+  @@index([userId, refreshToken])
+}
+
+model UserToRole {
+  userId Int
+  roleId Int
+  user   User @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+  role   Role @relation(fields: [roleId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model Role {
+  id                  Int      @id @default(autoincrement())
+  name                String   @unique
+  description         String   @default("")
+  torrentLeachLimitGb Int
+  torrentSearchLimit  Int
+  botsNotification    Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  users       UserToRole[]
+  permissions RoleToPermission[]
+}
+
+model RoleToPermission {
+  roleId       Int
+  permissionId Int
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model Permission {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  roles RoleToPermission[]
+}
+
+// ----------------------------------------------------------------
+
+model MovieSettings {
+  includeAnime  Boolean @default(true)
+  includeHentai Boolean @default(false)
+  userId        Int     @id @unique
+  user          User    @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+}
+
+model NotificationSettings {
+  newFollower                Boolean @default(true)
+  newMessage                 Boolean @default(false)
+  finishedList_spinOffSequel Boolean @default(true)
+  followMovie                Boolean @default(true)
+  followMovie_betterQuality  Boolean @default(false)
+  followMovie_subtitle       Boolean @default(false)
+  futureList                 Boolean @default(false)
+  futureList_serialSeasonEnd Boolean @default(true)
+  futureList_subtitle        Boolean @default(false)
+  userId                     Int     @id @unique
+  user                       User    @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+}
+
+model DownloadLinksSettings {
+  includeCensored    Boolean  @default(true)
+  includeDubbed      Boolean  @default(true)
+  includeHardSub     Boolean  @default(true)
+  preferredQualities String[] @default(["720p", "1080p", "2160p"])
+  userId             Int      @id @unique
+  user               User     @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+}
+
+// ----------------------------------------------------------------
+
+model ComputedFavoriteGenres {
+  count   Int
+  genre   String
+  percent Float
+  userId  Int
+  user    User   @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([userId, genre])
+}
+
+// ----------------------------------------------------------------
+// ----------------------------------------------------------------
+
+model LikeDislikeStaff {
+  type    likeDislike
+  date    DateTime
+  staffId Int
+  staff   Staff       @relation(fields: [staffId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  userId  Int
+  user    User        @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([userId, staffId])
+}
+
+model FollowStaff {
+  date    DateTime
+  staffId Int
+  staff   Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  userId  Int
+  user    User     @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([userId, staffId])
+}
+
+model Staff {
+  id             Int      @id @unique @default(autoincrement())
+  name           String   @unique
+  rawName        String
+  tvmazePersonID Int      @default(0)
+  jikanPersonID  Int      @default(0)
+  gender         String   @default("")
+  originalImages String[] @default([])
+  insert_date    DateTime @default(now())
+  update_date    DateTime @default(now())
+  about          String   @default("")
+  age            Int      @default(0)
+  birthday       String   @default("")
+  country        String   @default("")
+  deathday       String   @default("")
+  eyeColor       String   @default("")
+  hairColor      String   @default("")
+  height         String   @default("")
+  weight         String   @default("")
+  likes_count    Int      @default(0)
+  dislikes_count Int      @default(0)
+  follow_count   Int      @default(0)
+
+  imageData        CastImage?
+  credits          Credit[]
+  likeDislikeStaff LikeDislikeStaff[]
+  followStaff      FollowStaff[]
+
+  @@index([name, rawName])
+}
+
+// ----------------------------------------------------------------
+
+model LikeDislikeCharacter {
+  type        likeDislike
+  date        DateTime
+  characterId Int
+  character   Character   @relation(fields: [characterId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  userId      Int
+  user        User        @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([userId, characterId])
+}
+
+model FavoriteCharacter {
+  date        DateTime
+  characterId Int
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  userId      Int
+  user        User      @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([userId, characterId])
+}
+
+model Character {
+  id             Int      @id @unique @default(autoincrement())
+  name           String   @unique
+  rawName        String
+  tvmazePersonID Int      @default(0)
+  jikanPersonID  Int      @default(0)
+  gender         String   @default("")
+  originalImages String[] @default([])
+  insert_date    DateTime @default(now())
+  update_date    DateTime @default(now())
+  about          String   @default("")
+  age            Int      @default(0)
+  birthday       String   @default("")
+  country        String   @default("")
+  deathday       String   @default("")
+  eyeColor       String   @default("")
+  hairColor      String   @default("")
+  height         String   @default("")
+  weight         String   @default("")
+  likes_count    Int      @default(0)
+  dislikes_count Int      @default(0)
+  favorite_count Int      @default(0)
+
+  imageData            CastImage?
+  credits              Credit[]
+  likeDislikeCharacter LikeDislikeCharacter[]
+  favoriteCharacter    FavoriteCharacter[]
+
+  @@index([name, rawName])
+}
+
+model CastImage {
+  originalSize Int
+  originalUrl  String
+  size         Int
+  thumbnail    String
+  blurHash     String
+  url          String     @unique
+  vpnStatus    String
+  staffId      Int?       @unique
+  characterId  Int?       @unique
+  staff        Staff?     @relation(fields: [staffId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  character    Character? @relation(fields: [characterId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+}
+
+model Credit {
+  id             Int      @id @unique @default(autoincrement())
+  movieId        String
+  staffId        Int?
+  characterId    Int?
+  actorPositions String[]
+  characterRole  String
+
+  movie     Movie      @relation(fields: [movieId], references: [movieId], onDelete: Cascade, onUpdate: Cascade, map: "movie")
+  staff     Staff?     @relation(fields: [staffId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "staff")
+  character Character? @relation(fields: [characterId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "character")
+
+  @@unique([movieId, staffId, characterId, actorPositions])
+}
+
+// ----------------------------------------------------------------
+// ----------------------------------------------------------------
+
+model LikeDislikeMovie {
+  type    likeDislike
+  date    DateTime
+  movieId String
+  movie   Movie       @relation(fields: [movieId], references: [movieId], onDelete: Cascade, onUpdate: Cascade)
+  userId  Int
+  user    User        @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([userId, movieId])
+  @@index([movieId, userId])
+}
+
+model WatchedMovie {
+  score         Float    @default(0)
+  watch_season  Int      @default(0)
+  watch_episode Int      @default(0)
+  dropped       Boolean  @default(false)
+  favorite      Boolean  @default(false)
+  startDate     DateTime
+  date          DateTime
+  movieId       String
+  movie         Movie    @relation(fields: [movieId], references: [movieId], onDelete: Cascade, onUpdate: Cascade)
+  userId        Int
+  user          User     @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([userId, movieId])
+  @@index([movieId, userId])
+}
+
+model FollowMovie {
+  score         Float    @default(0)
+  watch_season  Int      @default(0)
+  watch_episode Int      @default(0)
+  date          DateTime
+  movieId       String
+  movie         Movie    @relation(fields: [movieId], references: [movieId], onDelete: Cascade, onUpdate: Cascade)
+  userId        Int
+  user          User     @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([userId, movieId])
+  @@index([movieId, userId])
+}
+
+model WatchListMovie {
+  score          Float           @default(0)
+  date           DateTime
+  group_name     String          @default("default")
+  watchListGroup WatchListGroup? @relation(fields: [userId, group_name], references: [userId, group_name], onDelete: SetDefault, onUpdate: Cascade)
+  movieId        String
+  movie          Movie           @relation(fields: [movieId], references: [movieId], onDelete: Cascade, onUpdate: Cascade)
+  userId         Int
+  user           User            @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([userId, movieId])
+  @@index([movieId, userId])
+}
+
+model WatchListGroup {
+  date           DateTime
+  group_name     String
+  WatchListMovie WatchListMovie[]
+  userId         Int
+  user           User             @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([userId, group_name])
+}
+
+model UserCollectionMovie {
+  date            DateTime
+  collection_name String
+  userCollection  UserCollection @relation(fields: [userId, collection_name], references: [userId, collection_name], onDelete: Cascade, onUpdate: Cascade)
+  movieId         String
+  movie           Movie          @relation(fields: [movieId], references: [movieId], onDelete: Cascade, onUpdate: Cascade)
+  userId          Int
+  user            User           @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([userId, movieId, collection_name])
+  @@index([movieId, userId, collection_name])
+}
+
+model UserCollection {
+  date                 DateTime
+  description          String                @default("")
+  collection_name      String
+  public               Boolean               @default(true)
+  userCollectionMovies UserCollectionMovie[]
+  userId               Int
+  user                 User                  @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([userId, collection_name])
+}
+
+model RelatedMovie {
+  date         DateTime      @default(now())
+  movieId      String
+  relatedId    String
+  relation     titleRelation
+  movie        Movie         @relation(fields: [movieId], references: [movieId], onDelete: Cascade, onUpdate: Cascade)
+  // Self-referencing relation to represent related movies
+  relatedMovie Movie?        @relation(fields: [relatedId], references: [movieId], onDelete: Cascade, onUpdate: Cascade, name: "relatedMovies")
+
+  @@unique([movieId, relatedId])
+}
+
+model Movie {
+  movieId          String @id @unique
+  likes_count      Int    @default(0)
+  dislikes_count   Int    @default(0)
+  favorite_count   Int    @default(0)
+  dropped_count    Int    @default(0)
+  finished_count   Int    @default(0)
+  follow_count     Int    @default(0)
+  watchlist_count  Int    @default(0)
+  continue_count   Int    @default(0)
+  view_count       Int    @default(0)
+  view_month_count Int    @default(0)
+
+  credits             Credit[]
+  watchListMovies     WatchListMovie[]
+  watchedMovies       WatchedMovie[]
+  followMovies        FollowMovie[]
+  likeDislikeMovies   LikeDislikeMovie[]
+  relatedMovies       RelatedMovie[]
+  relatedMovies2      RelatedMovie[]        @relation("relatedMovies")
+  UserCollectionMovie UserCollectionMovie[]
+}
+
+// ----------------------------------------------------------------
+// ----------------------------------------------------------------
+
+model Room {
+  roomId     Int @id @default(autoincrement())
+  creatorId  Int
+  receiverId Int
+
+  creator  User      @relation(fields: [creatorId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+  receiver User      @relation(fields: [receiverId], references: [userId], onDelete: Cascade, onUpdate: Cascade, name: "receiverUser")
+  messages Message[]
+
+  @@unique([creatorId, receiverId])
+}
+
+model Message {
+  id         Int      @id @default(autoincrement())
+  content    String
+  date       DateTime @default(now())
+  state      Int      @default(0)
+  roomId     Int?
+  creatorId  Int
+  receiverId Int
+
+  room     Room?       @relation(fields: [roomId], references: [roomId], onDelete: Cascade, onUpdate: Cascade)
+  creator  User        @relation(fields: [creatorId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+  receiver User        @relation(fields: [receiverId], references: [userId], onDelete: Cascade, onUpdate: Cascade, name: "receivedMessages")
+  medias   MediaFile[]
+
+  @@index([date, state])
+}
+
+model MediaFile {
+  id        Int      @id @default(autoincrement())
+  messageId Int
+  date      DateTime @default(now())
+  url       String
+  type      String
+  size      Int
+  thumbnail String
+  blurHash  String
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([messageId])
+}
+
+model UserMessageRead {
+  userId              Int      @id @unique
+  lastTimeRead        DateTime @default(now())
+  lastMessageReceived DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+}
+
+// ----------------------------------------------------------------
+// ----------------------------------------------------------------
+
+model Notification {
+  id              Int                    @id @default(autoincrement())
+  creatorId       Int
+  receiverId      Int
+  message         String
+  entityId        String
+  entityTypeId    Int
+  subEntityTypeId Int
+  date            DateTime               @default(now())
+  status          Int
+  creator         User                   @relation(fields: [creatorId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+  receiver        User                   @relation(fields: [receiverId], references: [userId], onDelete: Cascade, onUpdate: Cascade, name: "receivedNotif")
+  entityType      NotificationEntityType @relation(fields: [entityTypeId], references: [entityTypeId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([receiverId, date])
+}
+
+model NotificationEntityType {
+  entityTypeId  Int            @id
+  entityType    String         @unique
+  notifications Notification[]
+}
+
+// ----------------------------------------------------------------
+// ----------------------------------------------------------------
+
+model Bot {
+  botId                     String    @id @unique
+  botToken                  String    @unique
+  botName                   String
+  botType                   String
+  disabled                  Boolean
+  isOfficial                Boolean
+  permissionToLogin         Boolean
+  permissionToCrawl         Boolean
+  permissionToTorrentLeech  Boolean
+  permissionToTorrentSearch Boolean
+  users                     UserBot[]
+}
+
+model UserBot {
+  notification Boolean @default(true)
+  username     String
+  chatId       String
+  botId        String
+  bot          Bot     @relation(fields: [botId], references: [botId], onDelete: Cascade, onUpdate: Cascade)
+  userId       Int
+  user         User    @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([userId, botId])
+  @@index([userId, botId])
+}
+
+// ----------------------------------------------------------------
+// ----------------------------------------------------------------
+
+enum likeDislike {
+  like
+  dislike
+}
+
+enum titleRelation {
+  prequel
+  sequel
+  spin_off
+  side_story
+  full_story
+  summary
+  parent_story
+  other
+  alternative_setting
+  alternative_version
+}
+
+enum MbtiType {
+  ISTJ
+  ISFJ
+  INFJ
+  INTJ
+  ISTP
+  ISFP
+  INFP
+  INTP
+  ESTP
+  ESFP
+  ENFP
+  ENTP
+  ESTJ
+  ESFJ
+  ENFJ
+  ENTJ
+}

@@ -3,6 +3,7 @@ package main
 import (
 	"downloader_torrent/api"
 	"downloader_torrent/configs"
+	"downloader_torrent/db"
 	"downloader_torrent/db/mongodb"
 	"downloader_torrent/db/redis"
 	"downloader_torrent/internal/handler"
@@ -64,11 +65,18 @@ func main() {
 
 	go redis.ConnectRedis()
 
+	dbConn, err := db.NewDatabase()
+	if err != nil {
+		log.Fatalf("could not initialize database connection: %s", err)
+	}
+
 	mongoDB, err := mongodb.NewDatabase()
 	if err != nil {
 		log.Fatalf("could not initialize mongodb database connection: %s", err)
 	}
 	go configs.LoadDbConfigs(mongoDB.GetDB())
+
+	//telegramMessageSvc := service.NewTelegramMessageService()
 
 	torrentRep := repository.NewTorrentRepository(mongoDB.GetDB())
 	torrentSvc := service.NewTorrentService(torrentRep)
@@ -77,10 +85,22 @@ func main() {
 	streamSvc := service.NewStreamService(torrentRep)
 	streamHandler := handler.NewStreamHandler(streamSvc)
 
-	adminRep := repository.NewAdminRepository(mongoDB.GetDB())
-	adminSvc := service.NewAdminService(adminRep)
+	userRep := repository.NewUserRepository(dbConn.GetDB(), mongoDB.GetDB())
+	userSvc := service.NewUserService(userRep)
+	userHandler := handler.NewUserHandler(userSvc)
+
+	adminRep := repository.NewAdminRepository(dbConn.GetDB(), mongoDB.GetDB())
+	adminSvc := service.NewAdminService(userRep, adminRep)
 	adminHandler := handler.NewAdminHandler(adminSvc)
 
-	api.InitRouter(torrentHandler, streamHandler, adminHandler)
+	handlers := &api.Handlers{
+		TorrentHandler: torrentHandler,
+		StreamHandler:  streamHandler,
+		UserHandler:    userHandler,
+		AdminHandler:   adminHandler,
+		UserRepo:       userRep,
+	}
+
+	api.InitRouter(handlers)
 	api.Start("0.0.0.0:" + configs.GetConfigs().Port)
 }
