@@ -2,10 +2,25 @@ package model
 
 import (
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/anacrolix/torrent"
 )
+
+type UserTorrent struct {
+	UserId         int64     `gorm:"column:userId;type:integer;not null;primaryKey;uniqueIndex:UserTorrent_userId_key;" swaggerignore:"true"`
+	TorrentLeachGb int       `gorm:"column:torrentLeachGb;type:integer;not null;"`
+	TorrentSearch  int       `gorm:"column:torrentSearch;type:integer;not null;"`
+	FirstUseAt     time.Time `gorm:"column:firstUseAt;type:timestamp(3);not null;default:CURRENT_TIMESTAMP;"`
+}
+
+func (UserTorrent) TableName() string {
+	return "UserTorrent"
+}
+
+//---------------------------------------
+//---------------------------------------
 
 type TorrentStatusRes struct {
 	DownloadingFiles      []*DownloadingFile  `json:"downloadingFiles"`
@@ -53,12 +68,15 @@ type LocalFile struct {
 }
 
 type DownloadRequestInfo struct {
-	MovieId     string `json:"movieId"`
-	TorrentUrl  string `json:"torrentUrl"`
-	IsAdmin     bool   `json:"isAdmin"`
-	DownloadNow bool   `json:"downloadNow"`
-	UserId      int64  `json:"userId"`
-	BotData     *Bot   `json:"botData"`
+	MovieId      string `json:"movieId"`
+	TorrentUrl   string `json:"torrentUrl"`
+	IsAdmin      bool   `json:"isAdmin"`
+	DownloadNow  bool   `json:"downloadNow"`
+	UserId       int64  `json:"userId"`
+	IsBotRequest bool   `json:"isBotRequest"`
+	BotId        string `json:"botId"`
+	ChatId       string `json:"chatId"`
+	BotUsername  string `json:"botUsername"`
 }
 
 type DownloadRequestRes struct {
@@ -99,6 +117,7 @@ type StatsConfigs struct {
 	TorrentDownloadDisabled             bool    `json:"torrentDownloadDisabled"`
 	TorrentFileExpireDelayFactor        float32 `json:"torrentFileExpireDelayFactor"`
 	TorrentFileExpireExtendHour         int64   `json:"torrentFileExpireExtendHour"`
+	TorrentUserEnqueueLimit             int     `json:"torrentUserEnqueueLimit"`
 }
 
 type Tasks struct {
@@ -125,3 +144,38 @@ var ErrNotEnoughSpace = errors.New("not Enough space left")
 var ErrAlreadyDownloading = errors.New("already downloading")
 var ErrMaximumDiskUsageExceeded = errors.New("maximum disk usage exceeded")
 var ErrExtendLocalFileExpireIsDisabled = errors.New("extending local files expire time is disabled")
+var ErrBotIsDisabled = errors.New("bot is disabled")
+var ErrBotNoPermissionTorrentLeach = errors.New("bot dont have the permission to torrent-leach")
+var ErrNoRoleFoundForUser = errors.New("no role found for user")
+var ErrReachedTorrentLeachLimit = errors.New("reached torrent leach limit, wait for reset")
+var ErrTooManyQueuedDownload = errors.New("too many items added to queue, wait before they end")
+
+func GetErrorCode(err error) int {
+	code403 := []error{
+		ErrBotIsDisabled,
+		ErrBotNoPermissionTorrentLeach,
+	}
+	code404 := []error{
+		ErrNoRoleFoundForUser,
+	}
+	code409 := []error{}
+	code429 := []error{
+		ErrReachedTorrentLeachLimit,
+		ErrTooManyQueuedDownload,
+	}
+
+	if slices.Contains(code403, err) {
+		return 403
+	}
+	if slices.Contains(code404, err) {
+		return 404
+	}
+	if slices.Contains(code409, err) {
+		return 409
+	}
+	if slices.Contains(code429, err) {
+		return 429
+	}
+
+	return 0
+}

@@ -14,6 +14,7 @@ type IUserRepository interface {
 	GetUserRoles(userId int64) ([]model.Role, error)
 	GetUserRolesWithPermissions(userId int64) ([]model.RoleWithPermissions, error)
 	GetUserPermissionsByRoleIds(roleIds []int64) ([]model.Permission, error)
+	GetUserTorrent(userId int64) (*model.UserTorrent, error)
 }
 
 type UserRepository struct {
@@ -140,3 +141,15 @@ func (r *UserRepository) GetUserPermissionsByRoleIds(roleIds []int64) ([]model.P
 
 //------------------------------------------
 //------------------------------------------
+
+func (r *UserRepository) GetUserTorrent(userId int64) (*model.UserTorrent, error) {
+	var res model.UserTorrent
+
+	if err := r.db.Model(&model.UserTorrent{}).
+		Where("\"userId\" = ?", userId).
+		Find(&res).Error; err != nil {
+		return nil, err
+	}
+
+	return &res, nil
+}

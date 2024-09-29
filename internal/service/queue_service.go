@@ -15,6 +15,7 @@ type IDownloadQueue interface {
 	Enqueue(queueItem QueueItem) (int, error)
 	Dequeue() (QueueItem, bool)
 	GetIndex(torrentLink string) (int, bool)
+	GetItemOfUser(userId int64) []QueueItem
 	periodicSaveQueue()
 	checkSave()
 	saveQueue()
@@ -88,7 +89,9 @@ type QueueItem struct {
 	EnqueueTime   time.Time     `json:"enqueueTime"`
 	EnqueueSource EnqueueSource `json:"enqueueSource"`
 	UserId        int64         `json:"userId"`
-	BotData       *model.Bot    `json:"botData"`
+	BotId         string        `json:"botId"`
+	ChatId        string        `json:"chatId"`
+	BotUsername   string        `json:"botUsername"`
 }
 
 type EnqueueSource string
@@ -192,6 +195,20 @@ func (dq *DownloadQueue) GetIndex(torrentLink string) (int, bool) {
 	}
 
 	return 0, false
+}
+
+func (dq *DownloadQueue) GetItemOfUser(userId int64) []QueueItem {
+	//unsafe because no lock is used
+
+	res := []QueueItem{}
+
+	for _, info := range dq.queue {
+		if info.UserId == userId {
+			res = append(res, info)
+		}
+	}
+
+	return res
 }
 
 //---------------------------------------

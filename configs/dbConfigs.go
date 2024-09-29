@@ -40,6 +40,7 @@ type DbConfigData struct {
 	TorrentDownloadDisabled             bool                            `bson:"torrentDownloadDisabled"`
 	TorrentFileExpireDelayFactor        float32                         `bson:"torrentFileExpireDelayFactor"`
 	TorrentFileExpireExtendHour         int64                           `bson:"torrentFileExpireExtendHour"`
+	TorrentUserEnqueueLimit             int                             `bson:"torrentUserEnqueueLimit"`
 	DefaultTorrentDownloaderConfig      *DefaultTorrentDownloaderConfig `bson:"defaultTorrentDownloaderConfig"`
 }
 

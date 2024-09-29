@@ -78,16 +78,16 @@ func main() {
 
 	//telegramMessageSvc := service.NewTelegramMessageService()
 
+	userRep := repository.NewUserRepository(dbConn.GetDB(), mongoDB.GetDB())
+	userSvc := service.NewUserService(userRep)
+	userHandler := handler.NewUserHandler(userSvc)
+
 	torrentRep := repository.NewTorrentRepository(mongoDB.GetDB())
-	torrentSvc := service.NewTorrentService(torrentRep)
+	torrentSvc := service.NewTorrentService(torrentRep, userRep)
 	torrentHandler := handler.NewTorrentHandler(torrentSvc)
 
 	streamSvc := service.NewStreamService(torrentRep)
 	streamHandler := handler.NewStreamHandler(streamSvc)
-
-	userRep := repository.NewUserRepository(dbConn.GetDB(), mongoDB.GetDB())
-	userSvc := service.NewUserService(userRep)
-	userHandler := handler.NewUserHandler(userSvc)
 
 	adminRep := repository.NewAdminRepository(dbConn.GetDB(), mongoDB.GetDB())
 	adminSvc := service.NewAdminService(userRep, adminRep)

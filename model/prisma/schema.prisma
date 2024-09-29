@@ -31,6 +31,7 @@ model User {
   mbtiType                        MbtiType?
   profileImages                   ProfileImage[]
   movieSettings                   MovieSettings?
+  userTorrent                     UserTorrent?
   notificationSettings            NotificationSettings?
   downloadLinksSettings           DownloadLinksSettings?
   activeSessions                  ActiveSession[]
@@ -140,6 +141,14 @@ model Permission {
   updatedAt   DateTime @updatedAt
 
   roles RoleToPermission[]
+}
+
+model UserTorrent {
+  torrentLeachGb Int
+  torrentSearch  Int
+  firstUseAt     DateTime @default(now())
+  userId         Int      @id @unique
+  user           User     @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
 }
 
 // ----------------------------------------------------------------

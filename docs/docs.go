@@ -627,6 +627,9 @@ const docTemplate = `{
                 },
                 "torrentFilesServingDisabled": {
                     "type": "boolean"
+                },
+                "torrentUserEnqueueLimit": {
+                    "type": "integer"
                 }
             }
         },

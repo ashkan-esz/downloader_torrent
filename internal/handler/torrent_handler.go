@@ -124,12 +124,15 @@ func (m *TorrentHandler) DownloadTorrent(c *fiber.Ctx) error {
 	jwtUserData := c.Locals("jwtUserData").(*util.MyJwtClaims)
 
 	info := &model.DownloadRequestInfo{
-		MovieId:     movieId,
-		TorrentUrl:  link,
-		UserId:      jwtUserData.UserId,
-		IsAdmin:     slices.Contains(permissions, "admin_manage_torrent"),
-		DownloadNow: downloadNow,
-		BotData:     nil,
+		MovieId:      movieId,
+		TorrentUrl:   link,
+		IsAdmin:      slices.Contains(permissions, "admin_manage_torrent"),
+		DownloadNow:  downloadNow,
+		UserId:       jwtUserData.UserId,
+		IsBotRequest: jwtUserData.IsBotRequest,
+		BotId:        jwtUserData.BotId,
+		ChatId:       jwtUserData.ChatId,
+		BotUsername:  jwtUserData.BotUsername,
 	}
 
 	res, err := m.torrentService.HandleDownloadTorrentRequest(info)
@@ -143,6 +146,12 @@ func (m *TorrentHandler) DownloadTorrent(c *fiber.Ctx) error {
 		if errors.Is(err, model.ErrAlreadyDownloading) {
 			return response.ResponseError(c, err.Error(), fiber.StatusConflict)
 		}
+
+		code := model.GetErrorCode(err)
+		if code != 0 {
+			return response.ResponseError(c, err.Error(), code)
+		}
+
 		return response.ResponseError(c, err.Error(), fiber.StatusInternalServerError)
 	}
 	return response.ResponseOKWithData(c, res)

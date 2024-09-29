@@ -63,6 +63,7 @@ type ITorrentService interface {
 
 type TorrentService struct {
 	torrentRepo              repository.ITorrentRepository
+	userRepo                 repository.IUserRepository
 	torrentClient            *torrent.Client
 	downloadDir              string
 	downloadingFiles         []*model.DownloadingFile
@@ -78,7 +79,7 @@ type TorrentService struct {
 
 var TorrentSvc *TorrentService
 
-func NewTorrentService(torrentRepo repository.ITorrentRepository) *TorrentService {
+func NewTorrentService(torrentRepo repository.ITorrentRepository, UserRepo repository.IUserRepository) *TorrentService {
 	config := torrent.NewDefaultClientConfig()
 	config.DataDir = "./downloads"
 	config.Debug = false
@@ -88,6 +89,7 @@ func NewTorrentService(torrentRepo repository.ITorrentRepository) *TorrentServic
 
 	service := &TorrentService{
 		torrentRepo:         torrentRepo,
+		userRepo:            UserRepo,
 		torrentClient:       torrentClient,
 		downloadDir:         "./downloads/",
 		downloadingFiles:    make([]*model.DownloadingFile, 0),
@@ -155,10 +157,17 @@ func (m *TorrentService) GetTorrentStatus() *model.TorrentStatusRes {
 //------------------------------------------
 
 func (m *TorrentService) HandleDownloadTorrentRequest(requestInfo *model.DownloadRequestInfo) (*model.DownloadRequestRes, error) {
+	err := m.CheckPermissionAndLimitForTorrent(requestInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	//-------------------------------------------
+
 	var source EnqueueSource = User
 	if requestInfo.IsAdmin {
 		source = Admin
-	} else if requestInfo.BotData != nil {
+	} else if requestInfo.IsBotRequest {
 		source = UserBot
 	}
 
@@ -197,7 +206,9 @@ func (m *TorrentService) HandleDownloadTorrentRequest(requestInfo *model.Downloa
 			EnqueueTime:   time.Now(),
 			EnqueueSource: source,
 			UserId:        requestInfo.UserId,
-			BotData:       requestInfo.BotData,
+			BotId:         requestInfo.BotId,
+			ChatId:        requestInfo.ChatId,
+			BotUsername:   requestInfo.BotUsername,
 		}
 
 		qIndex, err := m.downloadQueue.Enqueue(qItem)
@@ -210,6 +221,65 @@ func (m *TorrentService) HandleDownloadTorrentRequest(requestInfo *model.Downloa
 			QueueIndex:      qIndex,
 		}, nil
 	}
+}
+
+func (m *TorrentService) CheckPermissionAndLimitForTorrent(requestInfo *model.DownloadRequestInfo) error {
+	if requestInfo.IsBotRequest {
+		botData, err := getCachedBotData(requestInfo.BotId)
+		if botData == nil {
+			botData, err = m.userRepo.GetBotData(requestInfo.BotId)
+			if botData != nil {
+				_ = setBotDataCache(requestInfo.BotId, botData)
+			}
+		}
+
+		if err != nil {
+			errorMessage := fmt.Sprintf("error on getting bot data: %v", err)
+			errorHandler.SaveError(errorMessage, err)
+			return err
+		}
+
+		if botData.Disabled {
+			return model.ErrBotIsDisabled
+		}
+
+		if !botData.PermissionToTorrentLeech {
+			return model.ErrBotNoPermissionTorrentLeach
+			//telegramMessage := getTelegramMessage(notificationData, botData)
+			//n.telegramMessageSvc.AddTelegramMessageToQueue(botData.BotToken, b.ChatId, telegramMessage)
+		}
+	}
+
+	roles, err := m.userRepo.GetUserRoles(requestInfo.UserId)
+	if err != nil {
+		return err
+	}
+	if len(roles) == 0 {
+		return model.ErrNoRoleFoundForUser
+	}
+
+	highestLimit := roles[0].TorrentLeachLimitGb
+	for _, r := range roles {
+		if r.TorrentLeachLimitGb > highestLimit {
+			highestLimit = r.TorrentLeachLimitGb
+		}
+	}
+
+	userTorrent, err := m.userRepo.GetUserTorrent(requestInfo.UserId)
+	if err != nil {
+		return err
+	}
+
+	if userTorrent.TorrentLeachGb >= highestLimit {
+		return model.ErrReachedTorrentLeachLimit
+	}
+
+	queueItems := m.downloadQueue.GetItemOfUser(requestInfo.UserId)
+	if len(queueItems) >= m.stats.Configs.TorrentUserEnqueueLimit {
+		return model.ErrTooManyQueuedDownload
+	}
+
+	return nil
 }
 
 //------------------------------------------
@@ -752,7 +822,9 @@ func (m *TorrentService) HandleAutoDownloader() error {
 					EnqueueTime:   time.Now(),
 					EnqueueSource: AutoDownloader,
 					UserId:        0,
-					BotData:       nil,
+					BotId:         "",
+					ChatId:        "",
+					BotUsername:   "",
 				}
 				enqueueCounter++
 				m.tasks.AutoDownloader = fmt.Sprintf("handling: %v removed, %v enqueued", removedCounter, enqueueCounter)
@@ -884,6 +956,7 @@ func (m *TorrentService) UpdateStats(done <-chan bool) {
 					TorrentDownloadDisabled:             dbConfigs.TorrentDownloadDisabled,
 					TorrentFileExpireDelayFactor:        dbConfigs.TorrentFileExpireDelayFactor,
 					TorrentFileExpireExtendHour:         dbConfigs.TorrentFileExpireExtendHour,
+					TorrentUserEnqueueLimit:             dbConfigs.TorrentUserEnqueueLimit,
 				},
 				TotalFilesSizeMb:          totalFilesSize / (1024 * 1024), //mb
 				TorrentDownloadTimeoutMin: dbConfigs.TorrentDownloadTimeoutMin,
