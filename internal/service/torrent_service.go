@@ -25,6 +25,7 @@ import (
 )
 
 type ITorrentService interface {
+	HandleDownloadTorrentRequest(requestInfo *model.DownloadRequestInfo) (*model.DownloadRequestRes, error)
 	DownloadQueueDequeueCheck(wid int) bool
 	DownloadQueueConsumer(wid int, queueItem QueueItem)
 	DownloadFile(movieId string, torrentUrl string, source EnqueueSource) (*model.DownloadingFile, error)
@@ -147,6 +148,67 @@ func (m *TorrentService) GetTorrentStatus() *model.TorrentStatusRes {
 		ActiveDownloadsCounts: m.activeDownloadsCounts,
 		TorrentClientStats:    m.torrentClient.Stats(),
 		DownloadQueueStats:    m.downloadQueue.GetStats(),
+	}
+}
+
+//------------------------------------------
+//------------------------------------------
+
+func (m *TorrentService) HandleDownloadTorrentRequest(requestInfo *model.DownloadRequestInfo) (*model.DownloadRequestRes, error) {
+	var source EnqueueSource = User
+	if requestInfo.IsAdmin {
+		source = Admin
+	} else if requestInfo.BotData != nil {
+		source = UserBot
+	}
+
+	if requestInfo.IsAdmin && requestInfo.DownloadNow {
+		res, err := m.DownloadFile(requestInfo.MovieId, requestInfo.TorrentUrl, source)
+		if err != nil {
+			return nil, err
+		}
+		return &model.DownloadRequestRes{
+			DownloadingFile: res,
+		}, nil
+	}
+
+	//check is downloading
+	for _, df := range m.downloadingFiles {
+		if df.TorrentUrl == requestInfo.TorrentUrl {
+			return &model.DownloadRequestRes{
+				DownloadingFile: df,
+				Message:         model.ErrAlreadyDownloading.Error(),
+			}, nil
+		}
+	}
+
+	qIndex, exist := m.downloadQueue.GetIndex(requestInfo.TorrentUrl)
+	if exist {
+		return &model.DownloadRequestRes{
+			DownloadingFile: nil,
+			Message:         "Already exist in queue",
+			QueueIndex:      qIndex,
+		}, nil
+	} else {
+		qItem := QueueItem{
+			TitleId:       requestInfo.MovieId,
+			TitleType:     "serial",
+			TorrentLink:   requestInfo.TorrentUrl,
+			EnqueueTime:   time.Now(),
+			EnqueueSource: source,
+			UserId:        requestInfo.UserId,
+			BotData:       requestInfo.BotData,
+		}
+
+		qIndex, err := m.downloadQueue.Enqueue(qItem)
+		if err != nil {
+			return nil, err
+		}
+		return &model.DownloadRequestRes{
+			DownloadingFile: nil,
+			Message:         "Added to queue",
+			QueueIndex:      qIndex,
+		}, nil
 	}
 }
 
@@ -689,7 +751,8 @@ func (m *TorrentService) HandleAutoDownloader() error {
 					TorrentLink:   downloadLink,
 					EnqueueTime:   time.Now(),
 					EnqueueSource: AutoDownloader,
-					UserInfo:      nil,
+					UserId:        0,
+					BotData:       nil,
 				}
 				enqueueCounter++
 				m.tasks.AutoDownloader = fmt.Sprintf("handling: %v removed, %v enqueued", removedCounter, enqueueCounter)

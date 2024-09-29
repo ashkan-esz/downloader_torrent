@@ -4,9 +4,11 @@ import (
 	"downloader_torrent/internal/service"
 	"downloader_torrent/model"
 	"downloader_torrent/pkg/response"
+	"downloader_torrent/util"
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -102,7 +104,8 @@ func (m *TorrentHandler) ServeLocalFile(c *fiber.Ctx) error {
 //	@Tags			Torrent-Download
 //	@Param			movieId		path		string	true	"movieId"
 //	@Param			link		query		string	true	"link to torrent file or magnet link"
-//	@Success		200			{object}	model.DownloadingFile
+//	@Param			downloadNow	query		boolean	true	"starts downloading now. need permission 'admin_manage_torrent' to work"
+//	@Success		200			{object}	model.DownloadRequestRes
 //	@Failure		400,401,404	{object}	response.ResponseErrorModel
 //	@Security		BearerAuth
 //	@Router			/v1/torrent/download/:movieId [put]
@@ -115,15 +118,30 @@ func (m *TorrentHandler) DownloadTorrent(c *fiber.Ctx) error {
 	if link == "" || link == ":link" {
 		return response.ResponseError(c, "Invalid torrent link", fiber.StatusBadRequest)
 	}
+	downloadNow := c.QueryBool("downloadNow", false)
 
-	//jwtUserData := c.Locals("jwtUserData").(*util.MyJwtClaims)
-	res, err := m.torrentService.DownloadFile(movieId, link, service.Admin)
+	permissions := c.Locals("permissions").([]string)
+	jwtUserData := c.Locals("jwtUserData").(*util.MyJwtClaims)
+
+	info := &model.DownloadRequestInfo{
+		MovieId:     movieId,
+		TorrentUrl:  link,
+		UserId:      jwtUserData.UserId,
+		IsAdmin:     slices.Contains(permissions, "admin_manage_torrent"),
+		DownloadNow: downloadNow,
+		BotData:     nil,
+	}
+
+	res, err := m.torrentService.HandleDownloadTorrentRequest(info)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return response.ResponseError(c, "Torrent link not found in db", fiber.StatusNotFound)
 		}
 		if strings.HasPrefix(err.Error(), "File") {
 			return response.ResponseError(c, err.Error(), fiber.StatusBadRequest)
+		}
+		if errors.Is(err, model.ErrAlreadyDownloading) {
+			return response.ResponseError(c, err.Error(), fiber.StatusConflict)
 		}
 		return response.ResponseError(c, err.Error(), fiber.StatusInternalServerError)
 	}

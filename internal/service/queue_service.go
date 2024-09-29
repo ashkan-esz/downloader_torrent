@@ -87,13 +87,8 @@ type QueueItem struct {
 	TorrentLink   string        `json:"torrentLink"`
 	EnqueueTime   time.Time     `json:"enqueueTime"`
 	EnqueueSource EnqueueSource `json:"enqueueSource"`
-	UserInfo      *UserInfo     `json:"userInfo"`
-}
-
-type UserInfo struct {
-	UserId int64 `json:"userId"`
-	//todo : more user data
-	//todo : bot data
+	UserId        int64         `json:"userId"`
+	BotData       *model.Bot    `json:"botData"`
 }
 
 type EnqueueSource string

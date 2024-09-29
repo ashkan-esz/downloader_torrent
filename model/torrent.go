@@ -52,6 +52,21 @@ type LocalFile struct {
 	LastDownloadTime time.Time `json:"lastDownloadTime"`
 }
 
+type DownloadRequestInfo struct {
+	MovieId     string `json:"movieId"`
+	TorrentUrl  string `json:"torrentUrl"`
+	IsAdmin     bool   `json:"isAdmin"`
+	DownloadNow bool   `json:"downloadNow"`
+	UserId      int64  `json:"userId"`
+	BotData     *Bot   `json:"botData"`
+}
+
+type DownloadRequestRes struct {
+	DownloadingFile *DownloadingFile `json:"downloadingFile"`
+	Message         string           `json:"message"`
+	QueueIndex      int              `json:"queueIndex"`
+}
+
 type StreamStatusRes struct {
 	ConvertingFiles []*ConvertingFile `json:"convertingFiles"`
 }

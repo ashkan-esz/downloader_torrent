@@ -285,13 +285,20 @@ const docTemplate = `{
                         "name": "link",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "starts downloading now. need permission 'admin_manage_torrent' to work",
+                        "name": "downloadNow",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/model.DownloadingFile"
+                            "$ref": "#/definitions/model.DownloadRequestRes"
                         }
                     },
                     "400": {
@@ -476,6 +483,20 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "workers": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.DownloadRequestRes": {
+            "type": "object",
+            "properties": {
+                "downloadingFile": {
+                    "$ref": "#/definitions/model.DownloadingFile"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "queueIndex": {
                     "type": "integer"
                 }
             }

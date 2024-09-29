@@ -24,6 +24,15 @@ definitions:
       workers:
         type: integer
     type: object
+  model.DownloadRequestRes:
+    properties:
+      downloadingFile:
+        $ref: '#/definitions/model.DownloadingFile'
+      message:
+        type: string
+      queueIndex:
+        type: integer
+    type: object
   model.DownloadingFile:
     properties:
       done:
@@ -350,11 +359,17 @@ paths:
         name: link
         required: true
         type: string
+      - description: starts downloading now. need permission 'admin_manage_torrent'
+          to work
+        in: query
+        name: downloadNow
+        required: true
+        type: boolean
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/model.DownloadingFile'
+            $ref: '#/definitions/model.DownloadRequestRes'
         "400":
           description: Bad Request
           schema:
