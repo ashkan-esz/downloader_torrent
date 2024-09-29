@@ -15,6 +15,7 @@ type IUserRepository interface {
 	GetUserRolesWithPermissions(userId int64) ([]model.RoleWithPermissions, error)
 	GetUserPermissionsByRoleIds(roleIds []int64) ([]model.Permission, error)
 	GetUserTorrent(userId int64) (*model.UserTorrent, error)
+	UpdateUserTorrentLeach(userId int64, increaseValue int) error
 }
 
 type UserRepository struct {
@@ -152,4 +153,12 @@ func (r *UserRepository) GetUserTorrent(userId int64) (*model.UserTorrent, error
 	}
 
 	return &res, nil
+}
+
+func (r *UserRepository) UpdateUserTorrentLeach(userId int64, increaseValue int) error {
+	err := r.db.Model(&model.UserTorrent{}).
+		Where("\"userId\" = ?", userId).
+		UpdateColumn("\"torrentLeachGb\"", gorm.Expr("\"torrentLeachGb\" + ?", increaseValue)).Error
+
+	return err
 }

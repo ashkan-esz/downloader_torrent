@@ -501,6 +501,12 @@
         "model.DownloadingFile": {
             "type": "object",
             "properties": {
+                "botId": {
+                    "type": "string"
+                },
+                "chatId": {
+                    "type": "string"
+                },
                 "done": {
                     "type": "boolean"
                 },
@@ -534,6 +540,9 @@
                 },
                 "torrentUrl": {
                     "type": "string"
+                },
+                "userId": {
+                    "type": "integer"
                 }
             }
         },

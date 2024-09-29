@@ -504,6 +504,12 @@ const docTemplate = `{
         "model.DownloadingFile": {
             "type": "object",
             "properties": {
+                "botId": {
+                    "type": "string"
+                },
+                "chatId": {
+                    "type": "string"
+                },
                 "done": {
                     "type": "boolean"
                 },
@@ -537,6 +543,9 @@ const docTemplate = `{
                 },
                 "torrentUrl": {
                     "type": "string"
+                },
+                "userId": {
+                    "type": "integer"
                 }
             }
         },

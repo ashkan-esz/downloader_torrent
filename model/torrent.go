@@ -54,6 +54,9 @@ type DownloadingFile struct {
 	StartTime      time.Time        `json:"startTime"`
 	Error          error            `json:"error"`
 	Done           bool             `json:"done"`
+	UserId         int64            `json:"userId"`
+	BotId          string           `json:"botId"`
+	ChatId         string           `json:"chatId"`
 }
 
 type LocalFile struct {

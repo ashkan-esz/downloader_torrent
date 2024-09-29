@@ -28,7 +28,7 @@ type ITorrentService interface {
 	HandleDownloadTorrentRequest(requestInfo *model.DownloadRequestInfo) (*model.DownloadRequestRes, error)
 	DownloadQueueDequeueCheck(wid int) bool
 	DownloadQueueConsumer(wid int, queueItem QueueItem)
-	DownloadFile(movieId string, torrentUrl string, source EnqueueSource) (*model.DownloadingFile, error)
+	DownloadFile(movieId string, torrentUrl string, queueItem QueueItem) (*model.DownloadingFile, error)
 	CancelDownload(fileName string) error
 	RemoveDownload(fileName string) error
 	GetTorrentStatus() *model.TorrentStatusRes
@@ -171,8 +171,20 @@ func (m *TorrentService) HandleDownloadTorrentRequest(requestInfo *model.Downloa
 		source = UserBot
 	}
 
+	qItem := QueueItem{
+		TitleId:       requestInfo.MovieId,
+		TitleType:     "serial",
+		TorrentLink:   requestInfo.TorrentUrl,
+		EnqueueTime:   time.Now(),
+		EnqueueSource: source,
+		UserId:        requestInfo.UserId,
+		BotId:         requestInfo.BotId,
+		ChatId:        requestInfo.ChatId,
+		BotUsername:   requestInfo.BotUsername,
+	}
+
 	if requestInfo.IsAdmin && requestInfo.DownloadNow {
-		res, err := m.DownloadFile(requestInfo.MovieId, requestInfo.TorrentUrl, source)
+		res, err := m.DownloadFile(requestInfo.MovieId, requestInfo.TorrentUrl, qItem)
 		if err != nil {
 			return nil, err
 		}
@@ -199,18 +211,6 @@ func (m *TorrentService) HandleDownloadTorrentRequest(requestInfo *model.Downloa
 			QueueIndex:      qIndex,
 		}, nil
 	} else {
-		qItem := QueueItem{
-			TitleId:       requestInfo.MovieId,
-			TitleType:     "serial",
-			TorrentLink:   requestInfo.TorrentUrl,
-			EnqueueTime:   time.Now(),
-			EnqueueSource: source,
-			UserId:        requestInfo.UserId,
-			BotId:         requestInfo.BotId,
-			ChatId:        requestInfo.ChatId,
-			BotUsername:   requestInfo.BotUsername,
-		}
-
 		qIndex, err := m.downloadQueue.Enqueue(qItem)
 		if err != nil {
 			return nil, err
@@ -298,7 +298,7 @@ func (m *TorrentService) DownloadQueueDequeueCheck(wid int) bool {
 
 func (m *TorrentService) DownloadQueueConsumer(wid int, queueItem QueueItem) {
 	m.WaitForDownloadConcurrencyFree()
-	downloadFile, err := m.DownloadFile(queueItem.TitleId, queueItem.TorrentLink, queueItem.EnqueueSource)
+	downloadFile, err := m.DownloadFile(queueItem.TitleId, queueItem.TorrentLink, queueItem)
 	if err != nil {
 		if errors.Is(err, model.ErrTorrentLinkNotFound) ||
 			errors.Is(err, model.ErrFileSizeExceeded) ||
@@ -400,7 +400,7 @@ func (m *TorrentService) HandleExpireTimeOfAutoDownloaded(file *model.Downloadin
 //------------------------------------------
 //------------------------------------------
 
-func (m *TorrentService) DownloadFile(movieId string, torrentUrl string, source EnqueueSource) (d *model.DownloadingFile, err error) {
+func (m *TorrentService) DownloadFile(movieId string, torrentUrl string, queueItem QueueItem) (d *model.DownloadingFile, err error) {
 	locked := false
 	defer func() {
 		if locked {
@@ -460,6 +460,9 @@ func (m *TorrentService) DownloadFile(movieId string, torrentUrl string, source 
 		StartTime:      time.Now(),
 		Error:          nil,
 		Done:           false,
+		UserId:         queueItem.UserId,
+		BotId:          queueItem.BotId,
+		ChatId:         queueItem.ChatId,
 	}
 
 	m.downloadingFiles = append(m.downloadingFiles, d)
@@ -517,6 +520,10 @@ func (m *TorrentService) DownloadFile(movieId string, torrentUrl string, source 
 						localUrl := m.GetDownloadLink(d.Name)
 						expireTime := m.GetFileExpireTime(d.Name, nil).UnixMilli()
 						err = m.torrentRepo.SaveTorrentLocalLink(movieId, checkResult.Type, torrentUrl, localUrl, expireTime)
+
+						if d.UserId > 0 && (queueItem.EnqueueSource == User || queueItem.EnqueueSource == UserBot) {
+							_ = m.userRepo.UpdateUserTorrentLeach(d.UserId, int(d.Size/(1024*1024)))
+						}
 
 						d.Done = true
 						return
