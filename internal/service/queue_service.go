@@ -15,7 +15,8 @@ type IDownloadQueue interface {
 	Enqueue(queueItem QueueItem) (int, error)
 	Dequeue() (QueueItem, bool)
 	GetIndex(torrentLink string) (int, bool)
-	GetItemOfUser(userId int64) []QueueItem
+	GetIndexAndReturn(torrentLink string) (*QueueItem, int, bool)
+	GetItemOfUser(userId int64) ([]QueueItem, []int)
 	periodicSaveQueue()
 	checkSave()
 	saveQueue()
@@ -197,18 +198,33 @@ func (dq *DownloadQueue) GetIndex(torrentLink string) (int, bool) {
 	return 0, false
 }
 
-func (dq *DownloadQueue) GetItemOfUser(userId int64) []QueueItem {
-	//unsafe because no lock is used
+func (dq *DownloadQueue) GetIndexAndReturn(torrentLink string) (*QueueItem, int, bool) {
+	//dq.mutex.Lock()
+	//defer dq.mutex.Unlock()
 
-	res := []QueueItem{}
-
-	for _, info := range dq.queue {
-		if info.UserId == userId {
-			res = append(res, info)
+	for i, info := range dq.queue {
+		if info.TorrentLink == torrentLink {
+			return &info, i, true
 		}
 	}
 
-	return res
+	return nil, 0, false
+}
+
+func (dq *DownloadQueue) GetItemOfUser(userId int64) ([]QueueItem, []int) {
+	//unsafe because no lock is used
+
+	res := []QueueItem{}
+	indexes := []int{}
+
+	for i, info := range dq.queue {
+		if info.UserId == userId {
+			res = append(res, info)
+			indexes = append(indexes, i)
+		}
+	}
+
+	return res, indexes
 }
 
 //---------------------------------------

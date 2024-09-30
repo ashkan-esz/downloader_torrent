@@ -32,6 +32,9 @@ type ITorrentService interface {
 	CancelDownload(fileName string) error
 	RemoveDownload(fileName string) error
 	GetTorrentStatus() *model.TorrentStatusRes
+	GetMyTorrentUsage(userId int64, embedQueuedDownloads bool) (*TorrentUsageRes, error)
+	GetMyDownloads(userId int64) (*TorrentUsageRes, error)
+	GetLinkStateInQueue(link string) (*TorrentUsageRes, error)
 	GetDownloadingFiles() []*model.DownloadingFile
 	GetLocalFiles() []*model.LocalFile
 	UpdateDownloadingFiles(done <-chan bool)
@@ -141,6 +144,20 @@ var torrentFileRegex = regexp.MustCompile(`([.\-])torrent$`)
 //-----------------------------------------
 //-----------------------------------------
 
+type TorrentUsageRes struct {
+	LeachLimit      int                      `json:"leachLimit"`
+	SearchLimit     int                      `json:"searchLimit"`
+	TorrentLeachGb  int                      `json:"torrentLeachGb"`
+	TorrentSearch   int                      `json:"torrentSearch"`
+	FirstUseAt      time.Time                `json:"firstUseAt"`
+	QueueItems      []QueueItem              `json:"queueItems"`
+	QueueItemsIndex []int                    `json:"queueItemsIndex"`
+	Downloading     []*model.DownloadingFile `json:"downloading"`
+}
+
+//-----------------------------------------
+//-----------------------------------------
+
 func (m *TorrentService) GetTorrentStatus() *model.TorrentStatusRes {
 	return &model.TorrentStatusRes{
 		DownloadingFiles:      m.downloadingFiles,
@@ -151,6 +168,112 @@ func (m *TorrentService) GetTorrentStatus() *model.TorrentStatusRes {
 		TorrentClientStats:    m.torrentClient.Stats(),
 		DownloadQueueStats:    m.downloadQueue.GetStats(),
 	}
+}
+
+func (m *TorrentService) GetMyTorrentUsage(userId int64, embedQueuedDownloads bool) (*TorrentUsageRes, error) {
+	userTorrent, err := m.userRepo.GetUserTorrent(userId)
+	if err != nil {
+		return nil, err
+	}
+
+	roles, err := m.userRepo.GetUserRoles(userId)
+	if err != nil {
+		return nil, err
+	}
+	if len(roles) == 0 {
+		return nil, model.ErrNoRoleFoundForUser
+	}
+
+	leachLimit := roles[0].TorrentLeachLimitGb
+	searchLimit := roles[0].TorrentSearchLimit
+	for _, r := range roles {
+		if r.TorrentLeachLimitGb > leachLimit {
+			leachLimit = r.TorrentLeachLimitGb
+		}
+		if r.TorrentSearchLimit > searchLimit {
+			searchLimit = r.TorrentSearchLimit
+		}
+	}
+
+	downloadingFiles := []*model.DownloadingFile{}
+	queueItems := []QueueItem{}
+	indexes := []int{}
+	if embedQueuedDownloads {
+		queueItems, indexes = m.downloadQueue.GetItemOfUser(userId)
+
+		for _, df := range m.downloadingFiles {
+			if df.UserId == userId {
+				downloadingFiles = append(downloadingFiles, df)
+			}
+		}
+	}
+
+	res := &TorrentUsageRes{
+		LeachLimit:      leachLimit,
+		SearchLimit:     searchLimit,
+		TorrentLeachGb:  userTorrent.TorrentLeachGb,
+		TorrentSearch:   userTorrent.TorrentSearch,
+		FirstUseAt:      userTorrent.FirstUseAt,
+		QueueItems:      queueItems,
+		QueueItemsIndex: indexes,
+		Downloading:     downloadingFiles,
+	}
+
+	return res, err
+}
+
+func (m *TorrentService) GetMyDownloads(userId int64) (*TorrentUsageRes, error) {
+	queueItems, indexes := m.downloadQueue.GetItemOfUser(userId)
+
+	downloadingFiles := []*model.DownloadingFile{}
+	for _, df := range m.downloadingFiles {
+		if df.UserId == userId {
+			downloadingFiles = append(downloadingFiles, df)
+		}
+	}
+
+	res := &TorrentUsageRes{
+		LeachLimit:      0,
+		SearchLimit:     0,
+		TorrentLeachGb:  0,
+		TorrentSearch:   0,
+		QueueItems:      queueItems,
+		QueueItemsIndex: indexes,
+		Downloading:     downloadingFiles,
+	}
+
+	return res, nil
+}
+
+func (m *TorrentService) GetLinkStateInQueue(link string) (*TorrentUsageRes, error) {
+	downloadingFiles := []*model.DownloadingFile{}
+	queueItems := []QueueItem{}
+	indexes := []int{}
+
+	qItem, index, _ := m.downloadQueue.GetIndexAndReturn(link)
+	if qItem != nil {
+		queueItems = append(queueItems, *qItem)
+		indexes = append(indexes, index)
+	}
+
+	for _, df := range m.downloadingFiles {
+		if df.TorrentUrl == link {
+			downloadingFiles = append(downloadingFiles, df)
+			break
+		}
+	}
+
+	res := &TorrentUsageRes{
+		LeachLimit:      0,
+		SearchLimit:     0,
+		TorrentLeachGb:  0,
+		TorrentSearch:   0,
+		QueueItems:      queueItems,
+		QueueItemsIndex: indexes,
+		Downloading:     downloadingFiles,
+	}
+
+	return res, nil
 }
 
 //------------------------------------------
@@ -274,7 +397,7 @@ func (m *TorrentService) CheckPermissionAndLimitForTorrent(requestInfo *model.Do
 		return model.ErrReachedTorrentLeachLimit
 	}
 
-	queueItems := m.downloadQueue.GetItemOfUser(requestInfo.UserId)
+	queueItems, _ := m.downloadQueue.GetItemOfUser(requestInfo.UserId)
 	if len(queueItems) >= m.stats.Configs.TorrentUserEnqueueLimit {
 		return model.ErrTooManyQueuedDownload
 	}

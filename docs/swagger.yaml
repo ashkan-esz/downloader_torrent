@@ -190,6 +190,64 @@ definitions:
       errorMessage:
         type: string
     type: object
+  service.EnqueueSource:
+    enum:
+    - admin
+    - user
+    - user-bot
+    - auto-downloader
+    type: string
+    x-enum-varnames:
+    - Admin
+    - User
+    - UserBot
+    - AutoDownloader
+  service.QueueItem:
+    properties:
+      botId:
+        type: string
+      botUsername:
+        type: string
+      chatId:
+        type: string
+      enqueueSource:
+        $ref: '#/definitions/service.EnqueueSource'
+      enqueueTime:
+        type: string
+      titleId:
+        type: string
+      titleType:
+        type: string
+      torrentLink:
+        type: string
+      userId:
+        type: integer
+    type: object
+  service.TorrentUsageRes:
+    properties:
+      downloading:
+        items:
+          $ref: '#/definitions/model.DownloadingFile'
+        type: array
+      firstUseAt:
+        type: string
+      leachLimit:
+        type: integer
+      queueItems:
+        items:
+          $ref: '#/definitions/service.QueueItem'
+        type: array
+      queueItemsIndex:
+        items:
+          type: integer
+        type: array
+      searchLimit:
+        type: integer
+      torrentLeachGb:
+        type: integer
+      torrentSearch:
+        type: integer
+    type: object
 host: download.movieTracker.site
 info:
   contact:
@@ -424,6 +482,81 @@ paths:
       security:
       - BearerAuth: []
       summary: Extend Expire Time
+      tags:
+      - Torrent-Download
+  /v1/torrent/my_downloads:
+    get:
+      description: Return my download requests status
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.TorrentUsageRes'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ResponseErrorModel'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ResponseErrorModel'
+      security:
+      - BearerAuth: []
+      summary: My Downloads
+      tags:
+      - Torrent-Download
+  /v1/torrent/my_usage:
+    get:
+      description: Return status of usage and limits
+      parameters:
+      - description: send queued downloads
+        in: query
+        name: embedQueuedDownloads
+        type: boolean
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.TorrentUsageRes'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ResponseErrorModel'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ResponseErrorModel'
+      security:
+      - BearerAuth: []
+      summary: My Usage
+      tags:
+      - Torrent-Download
+  /v1/torrent/queue_link_state:
+    get:
+      description: Return status of link, its downloading or in the queue. fastest
+        response, use to show live progress
+      parameters:
+      - description: link of the queued download
+        in: query
+        name: link
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.TorrentUsageRes'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ResponseErrorModel'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ResponseErrorModel'
+      security:
+      - BearerAuth: []
+      summary: Link State
       tags:
       - Torrent-Download
   /v1/torrent/remove/:filename:

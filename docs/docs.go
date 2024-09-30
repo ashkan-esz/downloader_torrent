@@ -371,6 +371,125 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/torrent/my_downloads": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Return my download requests status",
+                "tags": [
+                    "Torrent-Download"
+                ],
+                "summary": "My Downloads",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.TorrentUsageRes"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ResponseErrorModel"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ResponseErrorModel"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/torrent/my_usage": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Return status of usage and limits",
+                "tags": [
+                    "Torrent-Download"
+                ],
+                "summary": "My Usage",
+                "parameters": [
+                    {
+                        "type": "boolean",
+                        "description": "send queued downloads",
+                        "name": "embedQueuedDownloads",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.TorrentUsageRes"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ResponseErrorModel"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ResponseErrorModel"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/torrent/queue_link_state": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Return status of link, its downloading or in the queue. fastest response, use to show live progress",
+                "tags": [
+                    "Torrent-Download"
+                ],
+                "summary": "Link State",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "link of the queued download",
+                        "name": "link",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.TorrentUsageRes"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ResponseErrorModel"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ResponseErrorModel"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/torrent/remove/:filename": {
             "delete": {
                 "security": [
@@ -737,6 +856,91 @@ const docTemplate = `{
                 "data": {},
                 "errorMessage": {
                     "type": "string"
+                }
+            }
+        },
+        "service.EnqueueSource": {
+            "type": "string",
+            "enum": [
+                "admin",
+                "user",
+                "user-bot",
+                "auto-downloader"
+            ],
+            "x-enum-varnames": [
+                "Admin",
+                "User",
+                "UserBot",
+                "AutoDownloader"
+            ]
+        },
+        "service.QueueItem": {
+            "type": "object",
+            "properties": {
+                "botId": {
+                    "type": "string"
+                },
+                "botUsername": {
+                    "type": "string"
+                },
+                "chatId": {
+                    "type": "string"
+                },
+                "enqueueSource": {
+                    "$ref": "#/definitions/service.EnqueueSource"
+                },
+                "enqueueTime": {
+                    "type": "string"
+                },
+                "titleId": {
+                    "type": "string"
+                },
+                "titleType": {
+                    "type": "string"
+                },
+                "torrentLink": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "integer"
+                }
+            }
+        },
+        "service.TorrentUsageRes": {
+            "type": "object",
+            "properties": {
+                "downloading": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.DownloadingFile"
+                    }
+                },
+                "firstUseAt": {
+                    "type": "string"
+                },
+                "leachLimit": {
+                    "type": "integer"
+                },
+                "queueItems": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.QueueItem"
+                    }
+                },
+                "queueItemsIndex": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "searchLimit": {
+                    "type": "integer"
+                },
+                "torrentLeachGb": {
+                    "type": "integer"
+                },
+                "torrentSearch": {
+                    "type": "integer"
                 }
             }
         }

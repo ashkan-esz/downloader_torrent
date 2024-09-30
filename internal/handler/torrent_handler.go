@@ -23,6 +23,9 @@ type ITorrentHandler interface {
 	RemoveDownload(c *fiber.Ctx) error
 	ExtendLocalFileExpireTime(c *fiber.Ctx) error
 	TorrentStatus(c *fiber.Ctx) error
+	GetMyTorrentUsage(c *fiber.Ctx) error
+	GetMyDownloads(c *fiber.Ctx) error
+	GetLinkStateInQueue(c *fiber.Ctx) error
 }
 
 type TorrentHandler struct {
@@ -247,5 +250,67 @@ func (m *TorrentHandler) ExtendLocalFileExpireTime(c *fiber.Ctx) error {
 func (m *TorrentHandler) TorrentStatus(c *fiber.Ctx) error {
 	res := m.torrentService.GetTorrentStatus()
 
+	return response.ResponseOKWithData(c, res)
+}
+
+// GetMyTorrentUsage godoc
+//
+//	@Summary		My Usage
+//	@Description	Return status of usage and limits
+//	@Tags			Torrent-Download
+//	@Param			embedQueuedDownloads	query		boolean	false	"send queued downloads"
+//	@Success		200						{object}	service.TorrentUsageRes
+//	@Failure		400,401					{object}	response.ResponseErrorModel
+//	@Security		BearerAuth
+//	@Router			/v1/torrent/my_usage [get]
+func (m *TorrentHandler) GetMyTorrentUsage(c *fiber.Ctx) error {
+	embedQueuedDownloads := c.QueryBool("embedQueuedDownloads", false)
+
+	jwtUserData := c.Locals("jwtUserData").(*util.MyJwtClaims)
+	res, err := m.torrentService.GetMyTorrentUsage(jwtUserData.UserId, embedQueuedDownloads)
+	if err != nil {
+		return response.ResponseError(c, err.Error(), fiber.StatusInternalServerError)
+	}
+	return response.ResponseOKWithData(c, res)
+}
+
+// GetMyDownloads godoc
+//
+//	@Summary		My Downloads
+//	@Description	Return my download requests status
+//	@Tags			Torrent-Download
+//	@Success		200		{object}	service.TorrentUsageRes
+//	@Failure		400,401	{object}	response.ResponseErrorModel
+//	@Security		BearerAuth
+//	@Router			/v1/torrent/my_downloads [get]
+func (m *TorrentHandler) GetMyDownloads(c *fiber.Ctx) error {
+	jwtUserData := c.Locals("jwtUserData").(*util.MyJwtClaims)
+	res, err := m.torrentService.GetMyDownloads(jwtUserData.UserId)
+	if err != nil {
+		return response.ResponseError(c, err.Error(), fiber.StatusInternalServerError)
+	}
+	return response.ResponseOKWithData(c, res)
+}
+
+// GetLinkStateInQueue godoc
+//
+//	@Summary		Link State
+//	@Description	Return status of link, its downloading or in the queue. fastest response, use to show live progress
+//	@Tags			Torrent-Download
+//	@Param			link	query		string	true	"link of the queued download"
+//	@Success		200		{object}	service.TorrentUsageRes
+//	@Failure		400,401	{object}	response.ResponseErrorModel
+//	@Security		BearerAuth
+//	@Router			/v1/torrent/queue_link_state [get]
+func (m *TorrentHandler) GetLinkStateInQueue(c *fiber.Ctx) error {
+	link := c.Query("link", "")
+	if link == "" || link == ":link" {
+		return response.ResponseError(c, "Invalid torrent link", fiber.StatusBadRequest)
+	}
+
+	res, err := m.torrentService.GetLinkStateInQueue(link)
+	if err != nil {
+		return response.ResponseError(c, err.Error(), fiber.StatusInternalServerError)
+	}
 	return response.ResponseOKWithData(c, res)
 }
