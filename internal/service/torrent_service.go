@@ -43,6 +43,7 @@ type ITorrentService interface {
 	SyncFilesAndDb(done <-chan bool)
 	AutoDownloader(done <-chan bool)
 	HandleAutoDownloader() error
+	ScheduleMonthlyReset(done <-chan bool)
 	UpdateStats(done <-chan bool)
 	GetDiskSpaceUsage() (int64, error)
 	CleanUpSpace() error
@@ -132,6 +133,7 @@ func NewTorrentService(torrentRepo repository.ITorrentRepository, UserRepo repos
 	go service.CleanUp(done)
 	go service.SyncFilesAndDb(done)
 	go service.AutoDownloader(done)
+	go service.ScheduleMonthlyReset(done)
 
 	TorrentSvc = service
 
@@ -917,6 +919,27 @@ func (m *TorrentService) AutoDownloader(done <-chan bool) {
 			return
 		case <-ticker.C:
 			_ = m.HandleAutoDownloader()
+		}
+	}
+}
+
+func (m *TorrentService) ScheduleMonthlyReset(done <-chan bool) {
+	ticker := time.NewTicker(8 * time.Hour)
+	defer ticker.Stop()
+
+	time.Sleep(1 * time.Minute)
+	//time.Sleep(5 * time.Second)
+	monthStart := time.Date(time.Now().Year(), time.Now().Month(), 1, 0, 0, 0, 0, time.Now().Location())
+	_ = m.userRepo.ResetAllUserTorrentUsages(monthStart)
+
+	for {
+		select {
+		case <-done:
+			//fmt.Println("Periodic task stopped")
+			return
+		case <-ticker.C:
+			monthStart := time.Date(time.Now().Year(), time.Now().Month(), 1, 0, 0, 0, 0, time.Now().Location())
+			_ = m.userRepo.ResetAllUserTorrentUsages(monthStart)
 		}
 	}
 }

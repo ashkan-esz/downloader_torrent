@@ -3,6 +3,7 @@ package repository
 import (
 	"downloader_torrent/model"
 	"errors"
+	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gorm"
@@ -16,6 +17,7 @@ type IUserRepository interface {
 	GetUserPermissionsByRoleIds(roleIds []int64) ([]model.Permission, error)
 	GetUserTorrent(userId int64) (*model.UserTorrent, error)
 	UpdateUserTorrentLeach(userId int64, increaseValue int) error
+	ResetAllUserTorrentUsages(monthStart time.Time) error
 }
 
 type UserRepository struct {
@@ -156,9 +158,25 @@ func (r *UserRepository) GetUserTorrent(userId int64) (*model.UserTorrent, error
 }
 
 func (r *UserRepository) UpdateUserTorrentLeach(userId int64, increaseValue int) error {
+	monthStart := time.Date(time.Now().Year(), time.Now().Month(), 1, 0, 0, 0, 0, time.Now().Location())
 	err := r.db.Model(&model.UserTorrent{}).
 		Where("\"userId\" = ?", userId).
-		UpdateColumn("\"torrentLeachGb\"", gorm.Expr("\"torrentLeachGb\" + ?", increaseValue)).Error
+		UpdateColumns(map[string]interface{}{
+			"\"torrentLeachGb\"": gorm.Expr("\"torrentLeachGb\" + ?", increaseValue),
+			"\"firstUseAt\"":     gorm.Expr("CASE WHEN \"firstUseAt\" = ? THEN ? ELSE \"firstUseAt\" END", monthStart, time.Now().UTC()),
+		}).Error
+
+	return err
+}
+
+func (r *UserRepository) ResetAllUserTorrentUsages(monthStart time.Time) error {
+	err := r.db.Model(&model.UserTorrent{}).
+		Where("\"firstUseAt\" < ?", monthStart).
+		UpdateColumns(map[string]interface{}{
+			"\"torrentLeachGb\"": 0,
+			"\"torrentSearch\"":  0,
+			"\"firstUseAt\"":     monthStart,
+		}).Error
 
 	return err
 }
