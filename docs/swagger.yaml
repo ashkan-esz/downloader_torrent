@@ -434,6 +434,10 @@ paths:
         in: query
         name: downloadNow
         type: boolean
+      - description: size of file in megabyte
+        in: query
+        name: size
+        type: integer
       responses:
         "200":
           description: OK
@@ -485,6 +489,27 @@ paths:
       security:
       - BearerAuth: []
       summary: Extend Expire Time
+      tags:
+      - Torrent-Download
+  /v1/torrent/limits:
+    get:
+      description: Return configs and limits
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.TorrentUsageRes'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ResponseErrorModel'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ResponseErrorModel'
+      security:
+      - BearerAuth: []
+      summary: Link State
       tags:
       - Torrent-Download
   /v1/torrent/my_downloads:

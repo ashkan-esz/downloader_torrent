@@ -27,6 +27,7 @@ type ITorrentHandler interface {
 	GetMyTorrentUsage(c *fiber.Ctx) error
 	GetMyDownloads(c *fiber.Ctx) error
 	GetLinkStateInQueue(c *fiber.Ctx) error
+	GetTorrentLimits(c *fiber.Ctx) error
 }
 
 type TorrentHandler struct {
@@ -109,6 +110,7 @@ func (m *TorrentHandler) ServeLocalFile(c *fiber.Ctx) error {
 //	@Param			movieId		path		string	true	"movieId"
 //	@Param			link		query		string	true	"link to torrent file or magnet link"
 //	@Param			downloadNow	query		boolean	false	"starts downloading now. need permission 'admin_manage_torrent' to work"
+//	@Param			size		query		integer	false	"size of file in megabyte"
 //	@Success		200			{object}	model.DownloadRequestRes
 //	@Failure		400,401,404	{object}	response.ResponseErrorModel
 //	@Security		BearerAuth
@@ -129,6 +131,7 @@ func (m *TorrentHandler) DownloadTorrent(c *fiber.Ctx) error {
 		return response.ResponseError(c, "Invalid torrent link", fiber.StatusBadRequest)
 	}
 	downloadNow := c.QueryBool("downloadNow", false)
+	size := c.QueryInt("size", 0)
 
 	permissions := c.Locals("permissions").([]string)
 	jwtUserData := c.Locals("jwtUserData").(*util.MyJwtClaims)
@@ -138,6 +141,7 @@ func (m *TorrentHandler) DownloadTorrent(c *fiber.Ctx) error {
 		TorrentUrl:   link,
 		IsAdmin:      slices.Contains(permissions, "admin_manage_torrent"),
 		DownloadNow:  downloadNow,
+		Size:         size,
 		UserId:       jwtUserData.UserId,
 		IsBotRequest: jwtUserData.IsBotRequest,
 		BotId:        jwtUserData.BotId,
@@ -321,6 +325,23 @@ func (m *TorrentHandler) GetLinkStateInQueue(c *fiber.Ctx) error {
 	}
 
 	res, err := m.torrentService.GetLinkStateInQueue(link, filename)
+	if err != nil {
+		return response.ResponseError(c, err.Error(), fiber.StatusInternalServerError)
+	}
+	return response.ResponseOKWithData(c, res)
+}
+
+// GetTorrentLimits godoc
+//
+//	@Summary		Link State
+//	@Description	Return configs and limits
+//	@Tags			Torrent-Download
+//	@Success		200		{object}	service.TorrentUsageRes
+//	@Failure		400,401	{object}	response.ResponseErrorModel
+//	@Security		BearerAuth
+//	@Router			/v1/torrent/limits [get]
+func (m *TorrentHandler) GetTorrentLimits(c *fiber.Ctx) error {
+	res, err := m.torrentService.GetTorrentLimits()
 	if err != nil {
 		return response.ResponseError(c, err.Error(), fiber.StatusInternalServerError)
 	}

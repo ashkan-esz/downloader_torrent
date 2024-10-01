@@ -37,6 +37,7 @@ type ITorrentService interface {
 	GetMyTorrentUsage(userId int64, embedQueuedDownloads bool) (*TorrentUsageRes, error)
 	GetMyDownloads(userId int64) (*TorrentUsageRes, error)
 	GetLinkStateInQueue(link string, filename string) (*TorrentUsageRes, error)
+	GetTorrentLimits() (*model.StatsConfigs, error)
 	GetDownloadingFiles() []*model.DownloadingFile
 	GetLocalFiles() []*model.LocalFile
 	UpdateDownloadingFiles(done <-chan bool)
@@ -293,6 +294,10 @@ func (m *TorrentService) GetLinkStateInQueue(link string, filename string) (*Tor
 	return res, nil
 }
 
+func (m *TorrentService) GetTorrentLimits() (*model.StatsConfigs, error) {
+	return m.stats.Configs, nil
+}
+
 //------------------------------------------
 //------------------------------------------
 
@@ -364,6 +369,11 @@ func (m *TorrentService) HandleDownloadTorrentRequest(requestInfo *model.Downloa
 }
 
 func (m *TorrentService) CheckPermissionAndLimitForTorrent(requestInfo *model.DownloadRequestInfo) error {
+	if int64(requestInfo.Size) > m.stats.Configs.DownloadFileSizeLimitMb && m.stats.Configs.DownloadFileSizeLimitMb > 0 {
+		//m := fmt.Sprintf("File size exceeds the limit (%vmb)", m.stats.Configs.DownloadFileSizeLimitMb)
+		return model.ErrFileSizeExceeded
+	}
+
 	if requestInfo.IsBotRequest {
 		botData, err := getCachedBotData(requestInfo.BotId)
 		if botData == nil {

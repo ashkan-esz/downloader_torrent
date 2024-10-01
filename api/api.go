@@ -144,6 +144,7 @@ func InitRouter(handlers *Handlers) {
 		torrentRoutes.Get("/my_usage", middleware.AuthMiddleware, handlers.TorrentHandler.GetMyTorrentUsage)
 		torrentRoutes.Get("/my_downloads", middleware.AuthMiddleware, handlers.TorrentHandler.GetMyDownloads)
 		torrentRoutes.Get("/queue_link_state", handlers.TorrentHandler.GetLinkStateInQueue)
+		torrentRoutes.Get("/limits", handlers.TorrentHandler.GetTorrentLimits)
 	}
 
 	streamRoutes := router.Group("v1/stream")

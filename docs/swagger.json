@@ -288,6 +288,12 @@
                         "description": "starts downloading now. need permission 'admin_manage_torrent' to work",
                         "name": "downloadNow",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "size of file in megabyte",
+                        "name": "size",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -360,6 +366,40 @@
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.ResponseErrorModel"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/torrent/limits": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Return configs and limits",
+                "tags": [
+                    "Torrent-Download"
+                ],
+                "summary": "Link State",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.TorrentUsageRes"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ResponseErrorModel"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/response.ResponseErrorModel"
                         }

@@ -81,6 +81,7 @@ type DownloadRequestInfo struct {
 	BotId        string             `json:"botId"`
 	ChatId       string             `json:"chatId"`
 	BotUsername  string             `json:"botUsername"`
+	Size         int                `json:"size"`
 }
 
 type DownloadRequestRes struct {
