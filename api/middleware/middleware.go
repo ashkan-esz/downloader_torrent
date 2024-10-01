@@ -15,29 +15,39 @@ import (
 )
 
 func AuthMiddleware(c *fiber.Ctx) error {
-	refreshToken := c.Cookies("refreshToken", "")
-	if refreshToken == "" {
-		refreshToken = c.Get("refreshtoken", "")
+	isBotRequest := c.Get("isbotrequest", "") == "true"
+	if !isBotRequest {
+		isBotRequest = c.Get("isBotRequest", "") == "true"
+	}
+
+	if !isBotRequest {
+		// bots dont send refreshToken
+		refreshToken := c.Cookies("refreshToken", "")
 		if refreshToken == "" {
-			refreshToken = c.Get("refreshToken", "")
+			refreshToken = c.Get("refreshtoken", "")
+			if refreshToken == "" {
+				refreshToken = c.Get("refreshToken", "")
+			}
 		}
-	}
 
-	if refreshToken == "" {
-		return response.ResponseError(c, "Unauthorized, refreshToken not provided", fiber.StatusUnauthorized)
-	}
+		if refreshToken == "" {
+			return response.ResponseError(c, "Unauthorized, refreshToken not provided", fiber.StatusUnauthorized)
+		}
 
-	result, err := services.GetJwtDataCache(refreshToken)
-	if result != "" && err != nil && err.Error() != "redis: nil" {
-		return response.ResponseError(c, "Unauthorized, refreshToken is in blacklist", fiber.StatusUnauthorized)
-	}
+		result, err := services.GetJwtDataCache(refreshToken)
+		if result != "" && err != nil && err.Error() != "redis: nil" {
+			return response.ResponseError(c, "Unauthorized, refreshToken is in blacklist", fiber.StatusUnauthorized)
+		}
 
-	token, claims, err := util.VerifyRefreshToken(refreshToken)
-	if err != nil {
-		return response.ResponseError(c, "Unauthorized, Invalid refreshToken", fiber.StatusUnauthorized)
-	}
-	if token == nil || claims == nil {
-		return response.ResponseError(c, "Unauthorized, Invalid refreshToken metaData", fiber.StatusUnauthorized)
+		token, claims, err := util.VerifyRefreshToken(refreshToken)
+		if err != nil {
+			return response.ResponseError(c, "Unauthorized, Invalid refreshToken", fiber.StatusUnauthorized)
+		}
+		if token == nil || claims == nil {
+			return response.ResponseError(c, "Unauthorized, Invalid refreshToken metaData", fiber.StatusUnauthorized)
+		}
+
+		c.Locals("refreshToken", refreshToken)
 	}
 
 	//--------------------------------
@@ -59,7 +69,10 @@ func AuthMiddleware(c *fiber.Ctx) error {
 		return response.ResponseError(c, "Unauthorized, Invalid accessToken metaData", fiber.StatusUnauthorized)
 	}
 
-	c.Locals("refreshToken", refreshToken)
+	if isBotRequest != claims2.IsBotRequest {
+		return response.ResponseError(c, "Unauthorized, Conflict for jwt.isBotRequest !== headers.isBotRequest", fiber.StatusUnauthorized)
+	}
+
 	c.Locals("accessToken", accessToken)
 	c.Locals("jwtUserData", claims2)
 	return c.Next()

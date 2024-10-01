@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -107,16 +108,22 @@ func (m *TorrentHandler) ServeLocalFile(c *fiber.Ctx) error {
 //	@Tags			Torrent-Download
 //	@Param			movieId		path		string	true	"movieId"
 //	@Param			link		query		string	true	"link to torrent file or magnet link"
-//	@Param			downloadNow	query		boolean	true	"starts downloading now. need permission 'admin_manage_torrent' to work"
+//	@Param			downloadNow	query		boolean	false	"starts downloading now. need permission 'admin_manage_torrent' to work"
 //	@Success		200			{object}	model.DownloadRequestRes
 //	@Failure		400,401,404	{object}	response.ResponseErrorModel
 //	@Security		BearerAuth
 //	@Router			/v1/torrent/download/:movieId [put]
 func (m *TorrentHandler) DownloadTorrent(c *fiber.Ctx) error {
-	movieId := c.Params("movieId", "")
-	if movieId == "" || movieId == ":link" {
+	id := c.Params("movieId", "")
+	if id == "" || id == ":movieId" {
 		return response.ResponseError(c, "Invalid movieId", fiber.StatusBadRequest)
 	}
+
+	movieId, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return response.ResponseError(c, "Invalid movieId", fiber.StatusBadRequest)
+	}
+
 	link := c.Query("link", "")
 	if link == "" || link == ":link" {
 		return response.ResponseError(c, "Invalid torrent link", fiber.StatusBadRequest)
@@ -297,9 +304,10 @@ func (m *TorrentHandler) GetMyDownloads(c *fiber.Ctx) error {
 //	@Summary		Link State
 //	@Description	Return status of link, its downloading or in the queue. fastest response, use to show live progress
 //	@Tags			Torrent-Download
-//	@Param			link	query		string	true	"link of the queued download"
-//	@Success		200		{object}	service.TorrentUsageRes
-//	@Failure		400,401	{object}	response.ResponseErrorModel
+//	@Param			link		query		string	true	"link of the queued download"
+//	@Param			filename	query		string	false	"name of file"
+//	@Success		200			{object}	service.TorrentUsageRes
+//	@Failure		400,401		{object}	response.ResponseErrorModel
 //	@Security		BearerAuth
 //	@Router			/v1/torrent/queue_link_state [get]
 func (m *TorrentHandler) GetLinkStateInQueue(c *fiber.Ctx) error {
@@ -307,8 +315,12 @@ func (m *TorrentHandler) GetLinkStateInQueue(c *fiber.Ctx) error {
 	if link == "" || link == ":link" {
 		return response.ResponseError(c, "Invalid torrent link", fiber.StatusBadRequest)
 	}
+	filename := c.Query("filename", "")
+	if filename == ":filename" {
+		return response.ResponseError(c, "Invalid filename", fiber.StatusBadRequest)
+	}
 
-	res, err := m.torrentService.GetLinkStateInQueue(link)
+	res, err := m.torrentService.GetLinkStateInQueue(link, filename)
 	if err != nil {
 		return response.ResponseError(c, err.Error(), fiber.StatusInternalServerError)
 	}

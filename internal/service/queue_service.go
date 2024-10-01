@@ -9,11 +9,13 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type IDownloadQueue interface {
-	Enqueue(queueItem QueueItem) (int, error)
-	Dequeue() (QueueItem, bool)
+	Enqueue(queueItem *QueueItem) (int, error)
+	Dequeue() (*QueueItem, bool)
 	GetIndex(torrentLink string) (int, bool)
 	GetIndexAndReturn(torrentLink string) (*QueueItem, int, bool)
 	GetItemOfUser(userId int64) ([]QueueItem, []int)
@@ -28,7 +30,7 @@ type IDownloadQueue interface {
 }
 
 type DownloadQueue struct {
-	queue               []QueueItem
+	queue               []*QueueItem
 	mutex               sync.Mutex
 	queueFile           string
 	capacity            int
@@ -45,7 +47,7 @@ type DownloadQueue struct {
 
 func NewDownloadQueue(queueFile string, workers int, capacity int, saveQueueInterval time.Duration, batchSize int) *DownloadQueue {
 	dq := &DownloadQueue{
-		queue:             make([]QueueItem, 0, capacity),
+		queue:             make([]*QueueItem, 0, capacity),
 		queueFile:         queueFile,
 		capacity:          capacity,
 		workers:           workers,
@@ -80,19 +82,19 @@ func (dq *DownloadQueue) GetStats() *model.DownloadQueueStats {
 //---------------------------------------
 //---------------------------------------
 
-type ConsumerFunc func(wid int, queueItem QueueItem)
+type ConsumerFunc func(wid int, queueItem *QueueItem)
 type ConsumerDequeueCheckFunc func(wid int) bool
 
 type QueueItem struct {
-	TitleId       string        `json:"titleId"`
-	TitleType     string        `json:"titleType"`
-	TorrentLink   string        `json:"torrentLink"`
-	EnqueueTime   time.Time     `json:"enqueueTime"`
-	EnqueueSource EnqueueSource `json:"enqueueSource"`
-	UserId        int64         `json:"userId"`
-	BotId         string        `json:"botId"`
-	ChatId        string        `json:"chatId"`
-	BotUsername   string        `json:"botUsername"`
+	TitleId       primitive.ObjectID `json:"titleId"`
+	TitleType     string             `json:"titleType"`
+	TorrentLink   string             `json:"torrentLink"`
+	EnqueueTime   time.Time          `json:"enqueueTime"`
+	EnqueueSource EnqueueSource      `json:"enqueueSource"`
+	UserId        int64              `json:"userId"`
+	BotId         string             `json:"botId"`
+	ChatId        string             `json:"chatId"`
+	BotUsername   string             `json:"botUsername"`
 }
 
 type EnqueueSource string
@@ -109,7 +111,7 @@ var ErrOverflow = errors.New("overflow")
 //---------------------------------------
 //---------------------------------------
 
-func (dq *DownloadQueue) Enqueue(queueItem QueueItem) (int, error) {
+func (dq *DownloadQueue) Enqueue(queueItem *QueueItem) (int, error) {
 	dq.mutex.Lock()
 	defer dq.mutex.Unlock()
 
@@ -125,12 +127,12 @@ func (dq *DownloadQueue) Enqueue(queueItem QueueItem) (int, error) {
 	return len(dq.queue) - 1, nil
 }
 
-func (dq *DownloadQueue) Dequeue() (QueueItem, bool) {
+func (dq *DownloadQueue) Dequeue() (*QueueItem, bool) {
 	dq.mutex.Lock()
 	defer dq.mutex.Unlock()
 
 	if len(dq.queue) == 0 {
-		return QueueItem{}, false
+		return &QueueItem{}, false
 	}
 
 	queueItem := dq.queue[0]
@@ -174,11 +176,9 @@ func (dq *DownloadQueue) worker(wid int, consumerDequeueCheckFunc ConsumerDequeu
 		if !exist {
 			// Queue is empty
 			time.Sleep(emptyQueueSleep)
-			continue
+		} else {
+			consumerFunc(wid, item)
 		}
-
-		// magic/logic happens here
-		consumerFunc(wid, item)
 	}
 }
 
@@ -204,17 +204,17 @@ func (dq *DownloadQueue) GetIndexAndReturn(torrentLink string) (*QueueItem, int,
 
 	for i, info := range dq.queue {
 		if info.TorrentLink == torrentLink {
-			return &info, i, true
+			return info, i, true
 		}
 	}
 
 	return nil, 0, false
 }
 
-func (dq *DownloadQueue) GetItemOfUser(userId int64) ([]QueueItem, []int) {
+func (dq *DownloadQueue) GetItemOfUser(userId int64) ([]*QueueItem, []int) {
 	//unsafe because no lock is used
 
-	res := []QueueItem{}
+	res := []*QueueItem{}
 	indexes := []int{}
 
 	for i, info := range dq.queue {

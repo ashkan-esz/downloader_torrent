@@ -233,6 +233,10 @@ definitions:
         type: string
       leachLimit:
         type: integer
+      localFiles:
+        items:
+          $ref: '#/definitions/model.LocalFile'
+        type: array
       queueItems:
         items:
           $ref: '#/definitions/service.QueueItem'
@@ -429,7 +433,6 @@ paths:
           to work
         in: query
         name: downloadNow
-        required: true
         type: boolean
       responses:
         "200":
@@ -540,6 +543,10 @@ paths:
         in: query
         name: link
         required: true
+        type: string
+      - description: name of file
+        in: query
+        name: filename
         type: string
       responses:
         "200":

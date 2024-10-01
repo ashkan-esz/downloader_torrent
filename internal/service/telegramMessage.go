@@ -4,6 +4,7 @@ import (
 	errorHandler "downloader_torrent/pkg/error"
 	"errors"
 	"fmt"
+	"html"
 	"net/http"
 	"net/url"
 	"os"
@@ -164,3 +165,31 @@ func (t *TelegramMessageService) RunTelegramMessageQueue() {
 
 //------------------------------------------
 //------------------------------------------
+
+func formatTelegramMessage(text string) string {
+	// Escape special characters
+	escaped := html.EscapeString(text)
+
+	// Replace markdown characters with their escaped versions
+	replacer := strings.NewReplacer(
+		"_", "\\_",
+		"*", "\\*",
+		"[", "\\[",
+		"]", "\\]",
+		"(", "\\(",
+		")", "\\)",
+		"~", "\\~",
+		"`", "\\`",
+		">", "\\>",
+		"#", "\\#",
+		"+", "\\+",
+		"-", "\\-",
+		"=", "\\=",
+		"|", "\\|",
+		"{", "\\{",
+		"}", "\\}",
+		".", "\\.",
+		"!", "\\!",
+	)
+	return replacer.Replace(escaped)
+}

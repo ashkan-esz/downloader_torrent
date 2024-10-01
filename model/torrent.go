@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/anacrolix/torrent"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type UserTorrent struct {
@@ -41,22 +42,22 @@ type DownloadQueueStats struct {
 }
 
 type DownloadingFile struct {
-	State          string           `json:"state"`
-	Name           string           `json:"name"`
-	MetaFileName   string           `json:"metaFileName"`
-	Size           int64            `json:"size"`
-	DownloadedSize int64            `json:"downloadedSize"`
-	TorrentUrl     string           `json:"torrentUrl"`
-	Torrent        *torrent.Torrent `json:"-"`
-	TitleId        string           `json:"titleId"`
-	TitleName      string           `json:"titleName"`
-	TitleType      string           `json:"titleType"`
-	StartTime      time.Time        `json:"startTime"`
-	Error          error            `json:"error"`
-	Done           bool             `json:"done"`
-	UserId         int64            `json:"userId"`
-	BotId          string           `json:"botId"`
-	ChatId         string           `json:"chatId"`
+	State          string             `json:"state"`
+	Name           string             `json:"name"`
+	MetaFileName   string             `json:"metaFileName"`
+	Size           int64              `json:"size"`
+	DownloadedSize int64              `json:"downloadedSize"`
+	TorrentUrl     string             `json:"torrentUrl"`
+	Torrent        *torrent.Torrent   `json:"-"`
+	TitleId        primitive.ObjectID `json:"titleId"`
+	TitleName      string             `json:"titleName"`
+	TitleType      string             `json:"titleType"`
+	StartTime      time.Time          `json:"startTime"`
+	Error          error              `json:"error"`
+	Done           bool               `json:"done"`
+	UserId         int64              `json:"userId"`
+	BotId          string             `json:"botId"`
+	ChatId         string             `json:"chatId"`
 }
 
 type LocalFile struct {
@@ -71,15 +72,15 @@ type LocalFile struct {
 }
 
 type DownloadRequestInfo struct {
-	MovieId      string `json:"movieId"`
-	TorrentUrl   string `json:"torrentUrl"`
-	IsAdmin      bool   `json:"isAdmin"`
-	DownloadNow  bool   `json:"downloadNow"`
-	UserId       int64  `json:"userId"`
-	IsBotRequest bool   `json:"isBotRequest"`
-	BotId        string `json:"botId"`
-	ChatId       string `json:"chatId"`
-	BotUsername  string `json:"botUsername"`
+	MovieId      primitive.ObjectID `json:"movieId"`
+	TorrentUrl   string             `json:"torrentUrl"`
+	IsAdmin      bool               `json:"isAdmin"`
+	DownloadNow  bool               `json:"downloadNow"`
+	UserId       int64              `json:"userId"`
+	IsBotRequest bool               `json:"isBotRequest"`
+	BotId        string             `json:"botId"`
+	ChatId       string             `json:"chatId"`
+	BotUsername  string             `json:"botUsername"`
 }
 
 type DownloadRequestRes struct {

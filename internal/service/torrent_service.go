@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"slices"
@@ -21,20 +22,21 @@ import (
 	"github.com/anacrolix/torrent"
 	"github.com/djherbis/times"
 	torretParser "github.com/j-muller/go-torrent-parser"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type ITorrentService interface {
 	HandleDownloadTorrentRequest(requestInfo *model.DownloadRequestInfo) (*model.DownloadRequestRes, error)
 	DownloadQueueDequeueCheck(wid int) bool
-	DownloadQueueConsumer(wid int, queueItem QueueItem)
-	DownloadFile(movieId string, torrentUrl string, queueItem QueueItem) (*model.DownloadingFile, error)
+	DownloadQueueConsumer(wid int, queueItem *QueueItem)
+	DownloadFile(movieId primitive.ObjectID, torrentUrl string, queueItem *QueueItem) (*model.DownloadingFile, error)
 	CancelDownload(fileName string) error
 	RemoveDownload(fileName string) error
 	GetTorrentStatus() *model.TorrentStatusRes
 	GetMyTorrentUsage(userId int64, embedQueuedDownloads bool) (*TorrentUsageRes, error)
 	GetMyDownloads(userId int64) (*TorrentUsageRes, error)
-	GetLinkStateInQueue(link string) (*TorrentUsageRes, error)
+	GetLinkStateInQueue(link string, filename string) (*TorrentUsageRes, error)
 	GetDownloadingFiles() []*model.DownloadingFile
 	GetLocalFiles() []*model.LocalFile
 	UpdateDownloadingFiles(done <-chan bool)
@@ -152,9 +154,10 @@ type TorrentUsageRes struct {
 	TorrentLeachGb  int                      `json:"torrentLeachGb"`
 	TorrentSearch   int                      `json:"torrentSearch"`
 	FirstUseAt      time.Time                `json:"firstUseAt"`
-	QueueItems      []QueueItem              `json:"queueItems"`
+	QueueItems      []*QueueItem             `json:"queueItems"`
 	QueueItemsIndex []int                    `json:"queueItemsIndex"`
 	Downloading     []*model.DownloadingFile `json:"downloading"`
+	LocalFiles      []*model.LocalFile       `json:"localFiles"`
 }
 
 //-----------------------------------------
@@ -198,7 +201,7 @@ func (m *TorrentService) GetMyTorrentUsage(userId int64, embedQueuedDownloads bo
 	}
 
 	downloadingFiles := []*model.DownloadingFile{}
-	queueItems := []QueueItem{}
+	queueItems := []*QueueItem{}
 	indexes := []int{}
 	if embedQueuedDownloads {
 		queueItems, indexes = m.downloadQueue.GetItemOfUser(userId)
@@ -247,14 +250,14 @@ func (m *TorrentService) GetMyDownloads(userId int64) (*TorrentUsageRes, error) 
 	return res, nil
 }
 
-func (m *TorrentService) GetLinkStateInQueue(link string) (*TorrentUsageRes, error) {
+func (m *TorrentService) GetLinkStateInQueue(link string, filename string) (*TorrentUsageRes, error) {
 	downloadingFiles := []*model.DownloadingFile{}
-	queueItems := []QueueItem{}
+	queueItems := []*QueueItem{}
 	indexes := []int{}
 
 	qItem, index, _ := m.downloadQueue.GetIndexAndReturn(link)
 	if qItem != nil {
-		queueItems = append(queueItems, *qItem)
+		queueItems = append(queueItems, qItem)
 		indexes = append(indexes, index)
 	}
 
@@ -262,6 +265,17 @@ func (m *TorrentService) GetLinkStateInQueue(link string) (*TorrentUsageRes, err
 		if df.TorrentUrl == link {
 			downloadingFiles = append(downloadingFiles, df)
 			break
+		}
+	}
+
+	localFiles := []*model.LocalFile{}
+	if filename != "" && len(downloadingFiles) == 0 && len(queueItems) == 0 {
+		//search local files
+		for _, lf := range m.localFiles {
+			if lf.Name == filename {
+				localFiles = append(localFiles, lf)
+				break
+			}
 		}
 	}
 
@@ -273,6 +287,7 @@ func (m *TorrentService) GetLinkStateInQueue(link string) (*TorrentUsageRes, err
 		QueueItems:      queueItems,
 		QueueItemsIndex: indexes,
 		Downloading:     downloadingFiles,
+		LocalFiles:      localFiles,
 	}
 
 	return res, nil
@@ -290,13 +305,13 @@ func (m *TorrentService) HandleDownloadTorrentRequest(requestInfo *model.Downloa
 	//-------------------------------------------
 
 	var source EnqueueSource = User
-	if requestInfo.IsAdmin {
-		source = Admin
-	} else if requestInfo.IsBotRequest {
+	if requestInfo.IsBotRequest {
 		source = UserBot
+	} else if requestInfo.IsAdmin {
+		source = Admin
 	}
 
-	qItem := QueueItem{
+	qItem := &QueueItem{
 		TitleId:       requestInfo.MovieId,
 		TitleType:     "serial",
 		TorrentLink:   requestInfo.TorrentUrl,
@@ -421,7 +436,7 @@ func (m *TorrentService) DownloadQueueDequeueCheck(wid int) bool {
 	return true
 }
 
-func (m *TorrentService) DownloadQueueConsumer(wid int, queueItem QueueItem) {
+func (m *TorrentService) DownloadQueueConsumer(wid int, queueItem *QueueItem) {
 	m.WaitForDownloadConcurrencyFree()
 	downloadFile, err := m.DownloadFile(queueItem.TitleId, queueItem.TorrentLink, queueItem)
 	if err != nil {
@@ -464,7 +479,7 @@ func (m *TorrentService) DownloadQueueConsumer(wid int, queueItem QueueItem) {
 	m.WaitForDownloadConcurrencyFree()
 }
 
-func (m *TorrentService) RemoveAutoDownloaderLink(queueItem QueueItem) error {
+func (m *TorrentService) RemoveAutoDownloaderLink(queueItem *QueueItem) error {
 	if queueItem.EnqueueSource == AutoDownloader {
 		err := m.torrentRepo.UpdateTorrentAutoDownloaderPullDownloadLink(queueItem.TitleId, queueItem.TorrentLink)
 		if err != nil {
@@ -525,7 +540,7 @@ func (m *TorrentService) HandleExpireTimeOfAutoDownloaded(file *model.Downloadin
 //------------------------------------------
 //------------------------------------------
 
-func (m *TorrentService) DownloadFile(movieId string, torrentUrl string, queueItem QueueItem) (d *model.DownloadingFile, err error) {
+func (m *TorrentService) DownloadFile(movieId primitive.ObjectID, torrentUrl string, queueItem *QueueItem) (d *model.DownloadingFile, err error) {
 	locked := false
 	defer func() {
 		if locked {
@@ -650,6 +665,8 @@ func (m *TorrentService) DownloadFile(movieId string, torrentUrl string, queueIt
 							_ = m.userRepo.UpdateUserTorrentLeach(d.UserId, int(d.Size/(1024*1024)))
 						}
 
+						_ = m.SendLocalDownloadLinkToUerBot(d, queueItem)
+
 						d.Done = true
 						return
 					}
@@ -728,6 +745,29 @@ func (m *TorrentService) CheckFileExistAndSize(d *model.DownloadingFile) error {
 	if d.Size > (m.stats.RemainingSpaceMb-200)*1024*1024 && m.stats.RemainingSpaceMb > 0 {
 		//m := fmt.Sprintf("Not Enough space left (%vmb/%vmb)", d.Size/(1024*1024), m.stats.RemainingSpaceMb-200)
 		return model.ErrNotEnoughSpace
+	}
+
+	return nil
+}
+
+func (m *TorrentService) SendLocalDownloadLinkToUerBot(d *model.DownloadingFile, queueItem *QueueItem) error {
+	if d.BotId != "" && d.ChatId != "" && queueItem.EnqueueSource == UserBot {
+		botData, _ := getCachedBotData(d.BotId)
+		if botData == nil {
+			botData, _ = m.userRepo.GetBotData(d.BotId)
+			if botData != nil {
+				_ = setBotDataCache(d.BotId, botData)
+			}
+		}
+		if botData != nil {
+			message := fmt.Sprintf("Direct Download Link Generated \n[%v](%v)", formatTelegramMessage(d.Name), formatTelegramMessage(m.GetDownloadLink(d.Name)))
+			message = url.PathEscape(message)
+			telegramApiUrl := fmt.Sprintf("https://api.telegram.org/bot%v/sendMessage?chat_id=%v&text=%v&parse_mode=MarkdownV2",
+				botData.BotToken, d.ChatId, message)
+
+			_, err := http.Get(telegramApiUrl)
+			return err
+		}
 	}
 
 	return nil
@@ -968,8 +1008,8 @@ func (m *TorrentService) HandleAutoDownloader() error {
 		for _, downloadLink := range doc.DownloadTorrentLinks {
 			_, exist := m.downloadQueue.GetIndex(downloadLink)
 			if !exist {
-				qItem := QueueItem{
-					TitleId:       doc.Id.Hex(),
+				qItem := &QueueItem{
+					TitleId:       doc.Id,
 					TitleType:     doc.Type,
 					TorrentLink:   downloadLink,
 					EnqueueTime:   time.Now(),

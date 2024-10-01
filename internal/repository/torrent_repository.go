@@ -14,8 +14,8 @@ import (
 )
 
 type ITorrentRepository interface {
-	CheckTorrentLinkExist(movieId string, torrentUrl string) (*CheckTorrentLinkExistRes, error)
-	SaveTorrentLocalLink(movieId string, movieType string, torrentUrl string, localUrl string, expireTime int64) error
+	CheckTorrentLinkExist(movieId primitive.ObjectID, torrentUrl string) (*CheckTorrentLinkExistRes, error)
+	SaveTorrentLocalLink(movieId primitive.ObjectID, movieType string, torrentUrl string, localUrl string, expireTime int64) error
 	RemoveTorrentLocalLink(movieType string, localUrl string) error
 	IncrementTorrentLinkDownload(movieType string, localUrl string) error
 	GetAllSerialTorrentLocalLinks() (*mongo.Cursor, error)
@@ -23,7 +23,7 @@ type ITorrentRepository interface {
 	FindSerialTorrentLinks(searchList []string) ([]string, error)
 	FindMovieTorrentLinks(searchList []string) ([]string, error)
 	GetTorrentAutoDownloaderLinks() ([]TorrentAutoDownloaderLinksRes, error)
-	UpdateTorrentAutoDownloaderPullDownloadLink(movieId string, torrentUrl string) error
+	UpdateTorrentAutoDownloaderPullDownloadLink(movieId primitive.ObjectID, torrentUrl string) error
 	UpdateTorrentAutoDownloaderPullRemoveLink(movieType string, torrentUrl string) error
 }
 
@@ -54,14 +54,9 @@ type TorrentAutoDownloaderLinksRes struct {
 //------------------------------------------
 //------------------------------------------
 
-func (m *TorrentRepository) CheckTorrentLinkExist(movieId string, torrentUrl string) (*CheckTorrentLinkExistRes, error) {
-	id, err := primitive.ObjectIDFromHex(movieId)
-	if err != nil {
-		return nil, err
-	}
-
+func (m *TorrentRepository) CheckTorrentLinkExist(movieId primitive.ObjectID, torrentUrl string) (*CheckTorrentLinkExistRes, error) {
 	filter := bson.M{
-		"_id": id,
+		"_id": movieId,
 		"$or": []bson.M{
 			{"seasons.episodes.torrentLinks.link": torrentUrl},
 			{"qualities.torrentLinks.link": torrentUrl},
@@ -79,7 +74,7 @@ func (m *TorrentRepository) CheckTorrentLinkExist(movieId string, torrentUrl str
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	err = m.mongodb.
+	err := m.mongodb.
 		Collection("movies").
 		FindOne(ctx, filter, opts).
 		Decode(&result)
@@ -93,12 +88,7 @@ func (m *TorrentRepository) CheckTorrentLinkExist(movieId string, torrentUrl str
 	return &result, nil
 }
 
-func (m *TorrentRepository) SaveTorrentLocalLink(movieId string, movieType string, torrentUrl string, localUrl string, expireTime int64) error {
-	id, err := primitive.ObjectIDFromHex(movieId)
-	if err != nil {
-		return err
-	}
-
+func (m *TorrentRepository) SaveTorrentLocalLink(movieId primitive.ObjectID, movieType string, torrentUrl string, localUrl string, expireTime int64) error {
 	isMovie := strings.Contains(movieType, "movie")
 	linkQuery := "seasons.episodes.torrentLinks.link"
 	updateField := "seasons.$.episodes.$[].torrentLinks.$[item].localLink"
@@ -110,7 +100,7 @@ func (m *TorrentRepository) SaveTorrentLocalLink(movieId string, movieType strin
 	}
 
 	filter := bson.M{
-		"_id":     id,
+		"_id":     movieId,
 		linkQuery: torrentUrl,
 	}
 
@@ -133,7 +123,7 @@ func (m *TorrentRepository) SaveTorrentLocalLink(movieId string, movieType strin
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	_, err = m.mongodb.
+	_, err := m.mongodb.
 		Collection("movies").
 		UpdateOne(ctx, filter, update, opts)
 
@@ -452,14 +442,9 @@ func (m *TorrentRepository) GetTorrentAutoDownloaderLinks() ([]TorrentAutoDownlo
 	return finalRes, nil
 }
 
-func (m *TorrentRepository) UpdateTorrentAutoDownloaderPullDownloadLink(movieId string, torrentUrl string) error {
-	id, err := primitive.ObjectIDFromHex(movieId)
-	if err != nil {
-		return err
-	}
-
+func (m *TorrentRepository) UpdateTorrentAutoDownloaderPullDownloadLink(movieId primitive.ObjectID, torrentUrl string) error {
 	filter := bson.M{
-		"_id":                  id,
+		"_id":                  movieId,
 		"downloadTorrentLinks": torrentUrl,
 	}
 
@@ -474,7 +459,7 @@ func (m *TorrentRepository) UpdateTorrentAutoDownloaderPullDownloadLink(movieId 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	_, err = m.mongodb.
+	_, err := m.mongodb.
 		Collection("movies").
 		UpdateOne(ctx, filter, update, opts)
 

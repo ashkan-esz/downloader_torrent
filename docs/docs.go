@@ -290,8 +290,7 @@ const docTemplate = `{
                         "type": "boolean",
                         "description": "starts downloading now. need permission 'admin_manage_torrent' to work",
                         "name": "downloadNow",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -466,6 +465,12 @@ const docTemplate = `{
                         "name": "link",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "name of file",
+                        "name": "filename",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -920,6 +925,12 @@ const docTemplate = `{
                 },
                 "leachLimit": {
                     "type": "integer"
+                },
+                "localFiles": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.LocalFile"
+                    }
                 },
                 "queueItems": {
                     "type": "array",
