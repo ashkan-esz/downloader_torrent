@@ -988,7 +988,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "torrentLeachGb": {
-                    "type": "integer"
+                    "type": "number"
                 },
                 "torrentSearch": {
                     "type": "integer"

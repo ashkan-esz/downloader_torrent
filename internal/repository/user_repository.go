@@ -16,7 +16,7 @@ type IUserRepository interface {
 	GetUserRolesWithPermissions(userId int64) ([]model.RoleWithPermissions, error)
 	GetUserPermissionsByRoleIds(roleIds []int64) ([]model.Permission, error)
 	GetUserTorrent(userId int64) (*model.UserTorrent, error)
-	UpdateUserTorrentLeach(userId int64, increaseValue int) error
+	UpdateUserTorrentLeach(userId int64, increaseValue float32) error
 	ResetAllUserTorrentUsages(monthStart time.Time) error
 }
 
@@ -157,7 +157,7 @@ func (r *UserRepository) GetUserTorrent(userId int64) (*model.UserTorrent, error
 	return &res, nil
 }
 
-func (r *UserRepository) UpdateUserTorrentLeach(userId int64, increaseValue int) error {
+func (r *UserRepository) UpdateUserTorrentLeach(userId int64, increaseValue float32) error {
 	monthStart := time.Date(time.Now().Year(), time.Now().Month(), 1, 0, 0, 0, 0, time.Now().Location())
 	err := r.db.Model(&model.UserTorrent{}).
 		Where("\"userId\" = ?", userId).

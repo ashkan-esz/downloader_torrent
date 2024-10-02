@@ -144,7 +144,7 @@ model Permission {
 }
 
 model UserTorrent {
-  torrentLeachGb Int
+  torrentLeachGb Float
   torrentSearch  Int
   firstUseAt     DateTime @default(now())
   userId         Int      @id @unique

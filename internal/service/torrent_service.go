@@ -152,7 +152,7 @@ var torrentFileRegex = regexp.MustCompile(`([.\-])torrent$`)
 type TorrentUsageRes struct {
 	LeachLimit      int                      `json:"leachLimit"`
 	SearchLimit     int                      `json:"searchLimit"`
-	TorrentLeachGb  int                      `json:"torrentLeachGb"`
+	TorrentLeachGb  float32                  `json:"torrentLeachGb"`
 	TorrentSearch   int                      `json:"torrentSearch"`
 	FirstUseAt      time.Time                `json:"firstUseAt"`
 	QueueItems      []*QueueItem             `json:"queueItems"`
@@ -420,7 +420,7 @@ func (m *TorrentService) CheckPermissionAndLimitForTorrent(requestInfo *model.Do
 		return err
 	}
 
-	if userTorrent.TorrentLeachGb >= highestLimit {
+	if userTorrent.TorrentLeachGb >= float32(highestLimit) {
 		return model.ErrReachedTorrentLeachLimit
 	}
 
@@ -672,7 +672,7 @@ func (m *TorrentService) DownloadFile(movieId primitive.ObjectID, torrentUrl str
 						err = m.torrentRepo.SaveTorrentLocalLink(movieId, checkResult.Type, torrentUrl, localUrl, expireTime)
 
 						if d.UserId > 0 && (queueItem.EnqueueSource == User || queueItem.EnqueueSource == UserBot) {
-							_ = m.userRepo.UpdateUserTorrentLeach(d.UserId, int(d.Size/(1024*1024)))
+							_ = m.userRepo.UpdateUserTorrentLeach(d.UserId, float32(d.Size)/float32(1024*1024*1024))
 						}
 
 						_ = m.SendLocalDownloadLinkToUerBot(d, queueItem)
