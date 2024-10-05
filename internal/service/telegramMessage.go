@@ -84,7 +84,7 @@ func (t *TelegramMessageService) TelegramMessageQueueHandler() {
 		t.queue = t.queue[1:]
 		t.queueMux.Unlock()
 
-		findMessage := url.PathEscape(strings.ReplaceAll("---------------------------------- UPDATES/NEWS ----------------------------------", "-", "\\-"))
+		findMessage := url.PathEscape(strings.ReplaceAll("---------------------- UPDATES/NEWS ----------------------", "-", "\\-"))
 		lineSeparator := url.PathEscape("\n\n")
 		dot := url.PathEscape("\\. ")
 		for i, m := range queueItem.messages {

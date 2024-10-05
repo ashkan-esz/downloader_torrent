@@ -761,6 +761,9 @@ func (m *TorrentService) CheckFileExistAndSize(d *model.DownloadingFile) error {
 }
 
 func (m *TorrentService) SendLocalDownloadLinkToUerBot(d *model.DownloadingFile, queueItem *QueueItem) error {
+	if !m.stats.Configs.TorrentSendResultToBot {
+		return nil
+	}
 	if d.BotId != "" && d.ChatId != "" && queueItem.EnqueueSource == UserBot {
 		botData, _ := getCachedBotData(d.BotId)
 		if botData == nil {
@@ -1160,6 +1163,7 @@ func (m *TorrentService) UpdateStats(done <-chan bool) {
 					TorrentFileExpireDelayFactor:        dbConfigs.TorrentFileExpireDelayFactor,
 					TorrentFileExpireExtendHour:         dbConfigs.TorrentFileExpireExtendHour,
 					TorrentUserEnqueueLimit:             dbConfigs.TorrentUserEnqueueLimit,
+					TorrentSendResultToBot:              dbConfigs.TorrentSendResultToBot,
 				},
 				TotalFilesSizeMb:          totalFilesSize / (1024 * 1024), //mb
 				TorrentDownloadTimeoutMin: dbConfigs.TorrentDownloadTimeoutMin,

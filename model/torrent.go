@@ -123,6 +123,7 @@ type StatsConfigs struct {
 	TorrentFileExpireDelayFactor        float32 `json:"torrentFileExpireDelayFactor"`
 	TorrentFileExpireExtendHour         int64   `json:"torrentFileExpireExtendHour"`
 	TorrentUserEnqueueLimit             int     `json:"torrentUserEnqueueLimit"`
+	TorrentSendResultToBot              bool    `json:"torrentSendResultToBot"`
 }
 
 type Tasks struct {
