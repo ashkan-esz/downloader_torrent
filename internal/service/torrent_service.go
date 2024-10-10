@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -20,6 +21,7 @@ import (
 	"time"
 
 	"github.com/anacrolix/torrent"
+	"github.com/anacrolix/torrent/mse"
 	"github.com/djherbis/times"
 	torretParser "github.com/j-muller/go-torrent-parser"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -91,6 +93,26 @@ func NewTorrentService(torrentRepo repository.ITorrentRepository, UserRepo repos
 	config.DataDir = "./downloads"
 	config.Debug = false
 	config.NoUpload = true
+	config.AcceptPeerConnections = false
+	config.DisableAggressiveUpload = true
+	config.DisableWebseeds = true
+	config.DisableIPv4Peers = true
+	config.Seed = false
+	config.ClientTrackerConfig = torrent.ClientTrackerConfig{
+		DisableTrackers:     true,
+		TrackerDialContext:  nil,
+		TrackerListenPacket: nil,
+		LookupTrackerIp:     nil,
+	}
+	//config.DownloadRateLimiter = rate.NewLimiter(rate.Limit(1*1024*1024), 1<<20)
+	config.ListenPort = rand.Intn(65535-1024) + 1024
+
+	config.HeaderObfuscationPolicy = torrent.HeaderObfuscationPolicy{
+		RequirePreferred: true,
+		Preferred:        true,
+	}
+	config.CryptoProvides = mse.CryptoMethodRC4
+
 	torrentClient, _ := torrent.NewClient(config)
 	//defer torrentClient.Close()
 
@@ -475,7 +497,9 @@ func (m *TorrentService) DownloadQueueConsumer(wid int, queueItem *QueueItem) {
 			time.Sleep(1 * time.Second)
 		}
 		if downloadFile.Error != nil {
-			errorHandler.SaveError(downloadFile.Error.Error(), downloadFile.Error)
+			if !errors.Is(downloadFile.Error, model.ErrTorrentDownloadInactive) {
+				errorHandler.SaveError(downloadFile.Error.Error(), downloadFile.Error)
+			}
 			m.WaitForDownloadConcurrencyFree()
 			return
 		}
@@ -1294,8 +1318,10 @@ func (m *TorrentService) DownloadTorrentMetaFile(url string, location string) (s
 
 	resp, err := http.Get(url)
 	if err != nil {
-		errorMessage := fmt.Sprintf("Error on downloading torrent meta: %s", err)
-		errorHandler.SaveError(errorMessage, err)
+		if err.Error() != "bad status: 404 Not Found" {
+			errorMessage := fmt.Sprintf("Error on downloading torrent meta: %s", err)
+			errorHandler.SaveError(errorMessage, err)
+		}
 		return "", err
 	}
 	if resp.StatusCode != http.StatusOK {

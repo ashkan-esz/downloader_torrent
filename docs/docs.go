@@ -801,6 +801,9 @@ const docTemplate = `{
                 "torrentFilesServingDisabled": {
                     "type": "boolean"
                 },
+                "torrentSendResultToBot": {
+                    "type": "boolean"
+                },
                 "torrentUserEnqueueLimit": {
                     "type": "integer"
                 }

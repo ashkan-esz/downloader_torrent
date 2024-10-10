@@ -123,6 +123,8 @@ definitions:
         type: integer
       torrentFilesServingDisabled:
         type: boolean
+      torrentSendResultToBot:
+        type: boolean
       torrentUserEnqueueLimit:
         type: integer
     type: object
