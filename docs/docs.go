@@ -680,6 +680,9 @@ const docTemplate = `{
                 "downloadedSize": {
                     "type": "integer"
                 },
+                "enqueueSource": {
+                    "type": "string"
+                },
                 "error": {},
                 "metaFileName": {
                     "type": "string"

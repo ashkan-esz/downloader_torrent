@@ -58,6 +58,7 @@ type DownloadingFile struct {
 	UserId         int64              `json:"userId"`
 	BotId          string             `json:"botId"`
 	ChatId         string             `json:"chatId"`
+	EnqueueSource  string             `json:"enqueueSource"`
 }
 
 type LocalFile struct {

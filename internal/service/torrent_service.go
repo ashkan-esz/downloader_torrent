@@ -65,6 +65,7 @@ type ITorrentService interface {
 	DecrementFileDownloadCount(filename string)
 	IsTorrentFile(filename string, size int64) (bool, error)
 	GetDownloadLink(filename string) string
+	GetStreamLink(filename string) string
 	GetFileExpireTime(filename string, info os.FileInfo) time.Time
 	GetTorrentFileExpireDelay(size int64) time.Duration
 	ExtendLocalFileExpireTime(filename string) (time.Time, error)
@@ -324,6 +325,10 @@ func (m *TorrentService) GetTorrentLimits() (*model.StatsConfigs, error) {
 //------------------------------------------
 
 func (m *TorrentService) HandleDownloadTorrentRequest(requestInfo *model.DownloadRequestInfo) (*model.DownloadRequestRes, error) {
+	if m.stats.Configs.TorrentDownloadDisabled {
+		return nil, model.ErrTorrentDownloadDisabled
+	}
+
 	err := m.CheckPermissionAndLimitForTorrent(requestInfo)
 	if err != nil {
 		return nil, err
@@ -637,6 +642,7 @@ func (m *TorrentService) DownloadFile(movieId primitive.ObjectID, torrentUrl str
 		UserId:         queueItem.UserId,
 		BotId:          queueItem.BotId,
 		ChatId:         queueItem.ChatId,
+		EnqueueSource:  string(queueItem.EnqueueSource),
 	}
 
 	m.downloadingFiles = append(m.downloadingFiles, d)
@@ -1137,7 +1143,7 @@ A:
 			Name:             filename,
 			Size:             info.Size(),
 			DownloadLink:     m.GetDownloadLink(filename),
-			StreamLink:       "/v1/stream/" + filename,
+			StreamLink:       m.GetStreamLink(filename),
 			ExpireTime:       m.GetFileExpireTime(filename, info),
 			TotalDownloads:   &td,
 			ActiveDownloads:  &ad,
@@ -1325,8 +1331,10 @@ func (m *TorrentService) DownloadTorrentMetaFile(url string, location string) (s
 		return "", err
 	}
 	if resp.StatusCode != http.StatusOK {
-		errorMessage := fmt.Sprintf("Error on downloading torrent meta: %v", fmt.Errorf("bad status: %s", resp.Status))
-		errorHandler.SaveError(errorMessage, err)
+		if resp.Status != "404 Not Found" {
+			errorMessage := fmt.Sprintf("Error on downloading torrent meta: %v", fmt.Errorf("bad status: %s", resp.Status))
+			errorHandler.SaveError(errorMessage, err)
+		}
 		return "", err
 	}
 	defer resp.Body.Close()
@@ -1655,7 +1663,11 @@ func (m *TorrentService) CheckServingLocalFile(filename string) bool {
 }
 
 func (m *TorrentService) GetDownloadLink(filename string) string {
-	return configs.GetConfigs().ServerAddress + "/partial_download/" + filename
+	return configs.GetConfigs().DownloadAddress + "/partial_download/" + filename
+}
+
+func (m *TorrentService) GetStreamLink(filename string) string {
+	return configs.GetConfigs().ServerAddress + "/v1/stream/" + filename
 }
 
 func (m *TorrentService) GetFileExpireTime(filename string, info os.FileInfo) time.Time {

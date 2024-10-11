@@ -20,6 +20,7 @@ type ConfigStruct struct {
 	MongodbDatabaseName       string
 	MainServerAddress         string
 	ServerAddress             string
+	DownloadAddress           string
 	CorsAllowedOrigins        []string
 	SentryDns                 string
 	SentryRelease             string
@@ -60,4 +61,5 @@ func LoadEnvVariables() {
 	configs.DontConvertMkv = os.Getenv("DONT_CONVERT_MKV") == "true"
 	configs.ServerAddress = os.Getenv("SERVER_ADDRESS")
 	configs.Domain = os.Getenv("DOMAIN")
+	configs.DownloadAddress = os.Getenv("DOWNLOAD_ADDRESS")
 }
