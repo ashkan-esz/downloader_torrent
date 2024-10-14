@@ -392,7 +392,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/service.TorrentUsageRes"
+                            "$ref": "#/definitions/model.StatsConfigs"
                         }
                     },
                     "400": {

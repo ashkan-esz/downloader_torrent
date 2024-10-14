@@ -121,7 +121,7 @@ type StatsConfigs struct {
 	TorrentDownloadConcurrencyLimit     int64   `json:"torrentDownloadConcurrencyLimit"`
 	TorrentFilesServingDisabled         bool    `json:"torrentFilesServingDisabled"`
 	TorrentDownloadDisabled             bool    `json:"torrentDownloadDisabled"`
-	TorrentFileExpireDelayFactor        float32 `json:"torrentFileExpireDelayFactor"`
+	TorrentFileExpireDelayFactor        float64 `json:"torrentFileExpireDelayFactor"`
 	TorrentFileExpireExtendHour         int64   `json:"torrentFileExpireExtendHour"`
 	TorrentUserEnqueueLimit             int     `json:"torrentUserEnqueueLimit"`
 	TorrentSendResultToBot              bool    `json:"torrentSendResultToBot"`

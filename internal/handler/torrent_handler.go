@@ -336,7 +336,7 @@ func (m *TorrentHandler) GetLinkStateInQueue(c *fiber.Ctx) error {
 //	@Summary		Link State
 //	@Description	Return configs and limits
 //	@Tags			Torrent-Download
-//	@Success		200		{object}	service.TorrentUsageRes
+//	@Success		200		{object}	model.StatsConfigs
 //	@Failure		400,401	{object}	response.ResponseErrorModel
 //	@Security		BearerAuth
 //	@Router			/v1/torrent/limits [get]

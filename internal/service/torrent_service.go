@@ -1706,7 +1706,7 @@ func (m *TorrentService) GetFileExpireTime(filename string, info os.FileInfo) ti
 }
 
 func (m *TorrentService) GetTorrentFileExpireDelay(size int64) time.Duration {
-	return time.Duration(float32(size/(1024*1024))*m.stats.Configs.TorrentFileExpireDelayFactor) * time.Second
+	return time.Duration(int(float64(size/(1024*1024))*m.stats.Configs.TorrentFileExpireDelayFactor)) * time.Second
 }
 
 //-----------------------------------------
